@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SR Creation Studio - Memory Maker</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode:"class",
+    theme:{
+      extend:{
+        colors:{
+          "surface-dim":"#131313","surface-container-high":"#2a2a2a","surface-container-low":"#1c1b1b",
+          "error-container":"#93000a","surface-bright":"#3a3939","error":"#ffb4ab","tertiary":"#c6c6c7",
+          "on-primary":"#680010","surface-tint":"#ffb3b1","surface-container":"#201f1f",
+          "inverse-on-surface":"#313030","secondary":"#e6c364","surface-variant":"#353534",
+          "on-surface-variant":"#e4bdbb","surface-container-highest":"#353534","surface-container-lowest":"#0e0e0e",
+          "on-primary-container":"#fff2f1","on-background":"#e5e2e1","background":"#131313",
+          "primary-fixed-dim":"#ffb3b1","primary-container":"#d72638","secondary-fixed":"#ffe08f",
+          "outline-variant":"#5c403f","outline":"#ab8887","inverse-surface":"#e5e2e1",
+          "secondary-container":"#785d00","on-secondary":"#3d2e00","primary":"#ffb3b1",
+          "on-surface":"#e5e2e1","surface":"#131313"
+        },
+        fontFamily:{"headline":["Noto Serif"],"body":["Manrope"],"label":["Manrope"]},
+        borderRadius:{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},
+      }
+    }
+  }
+</script>
+<style>
+  :root { --flash-dur: 0.25s; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24; }
+
+  /* ── LOADING SCREEN ── */
+  #loader {
+    position:fixed; inset:0; z-index:9999;
+    background:#0e0e0e;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  #loader.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+
+  /* Camera body SVG wrapper */
+  .camera-wrap { position:relative; width:120px; height:90px; }
+
+  /* Aperture blades */
+  .aperture { width:80px; height:80px; position:relative; margin:0 auto; }
+  .blade {
+    position:absolute; width:50%; height:50%;
+    background:#D72638; transform-origin:100% 100%;
+    clip-path:polygon(0 0,100% 0,100% 100%);
+    opacity:0.85;
+  }
+  .blade:nth-child(1){top:0;left:0;transform:rotate(0deg);}
+  .blade:nth-child(2){top:0;left:0;transform:rotate(45deg);}
+  .blade:nth-child(3){top:0;left:0;transform:rotate(90deg);}
+  .blade:nth-child(4){top:0;left:0;transform:rotate(135deg);}
+  .blade:nth-child(5){top:0;left:0;transform:rotate(180deg);}
+  .blade:nth-child(6){top:0;left:0;transform:rotate(225deg);}
+  .blade:nth-child(7){top:0;left:0;transform:rotate(270deg);}
+  .blade:nth-child(8){top:0;left:0;transform:rotate(315deg);}
+
+  @keyframes bladeOpen {
+    0%   { clip-path:polygon(50% 50%,50% 50%,50% 50%); }
+    60%  { clip-path:polygon(0 0,100% 0,100% 100%); }
+    100% { clip-path:polygon(0 0,100% 0,100% 100%); }
+  }
+  @keyframes bladeClose {
+    0%   { clip-path:polygon(0 0,100% 0,100% 100%); }
+    100% { clip-path:polygon(50% 50%,50% 50%,50% 50%); }
+  }
+  .blade.open  { animation: bladeOpen  0.5s ease forwards; }
+  .blade.close { animation: bladeClose 0.3s ease forwards; }
+
+  /* Flash overlay */
+  #flash-overlay {
+    position:fixed; inset:0; z-index:10000;
+    background:white; opacity:0; pointer-events:none;
+    transition: opacity 0.1s ease;
+  }
+  #flash-overlay.flash { opacity:1; }
+
+  /* Loading bar */
+  .load-bar { width:200px; height:2px; background:#2a2a2a; border-radius:2px; margin-top:24px; overflow:hidden; }
+  .load-progress { height:100%; background:linear-gradient(90deg,#D72638,#e6c364); width:0; transition:width 0.1s linear; }
+
+  .load-text { color:#e5e2e1; font-family:'Manrope',sans-serif; font-size:12px; letter-spacing:0.3em; text-transform:uppercase; margin-top:12px; opacity:0.6; }
+
+  /* ── GLASS NAV ── */
+  .glass-nav { backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+  .cinematic-gradient { background:radial-gradient(circle at center,rgba(215,38,56,0.15) 0%,rgba(19,19,19,0) 70%); }
+
+  /* ── SCROLL REVEAL ── */
+  .reveal { opacity:0; transform:translateY(32px); transition:opacity 0.7s ease,transform 0.7s ease; }
+  .reveal.visible { opacity:1; transform:translateY(0); }
+
+  /* ── WHATSAPP FLOAT BUTTON ── */
+  #wa-float {
+    position:fixed; bottom:28px; right:28px; z-index:500;
+    width:60px; height:60px; border-radius:50%;
+    background:#25D366; box-shadow:0 4px 24px rgba(37,211,102,0.5);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:transform 0.2s ease, box-shadow 0.2s ease;
+    text-decoration:none;
+  }
+  #wa-float:hover { transform:scale(1.12); box-shadow:0 6px 32px rgba(37,211,102,0.7); }
+
+  /* ── SERVICE MODAL ── */
+  #service-modal { position:fixed; inset:0; z-index:800; display:none; align-items:center; justify-content:center; }
+  #service-modal.active { display:flex; }
+  #modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); }
+  #modal-box { position:relative; z-index:1; background:#1c1b1b; border:1px solid #5c403f; border-radius:1rem; padding:2.5rem; max-width:480px; width:90%; }
+
+  /* ── LIGHTBOX ── */
+  #lightbox { position:fixed; inset:0; z-index:900; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.92); }
+  #lightbox.active { display:flex; }
+  #lightbox img { max-width:90vw; max-height:90vh; object-fit:contain; border-radius:0.5rem; }
+
+  /* ── COUNTER ANIMATION ── */
+  .counter { display:inline-block; }
+
+  /* ── HERO PARALLAX ── */
+  #hero-bg { will-change:transform; }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:#0e0e0e; }
+  ::-webkit-scrollbar-thumb { background:#D72638; border-radius:3px; }
+
+  /* Testimonial card */
+  .testimonial-card { background:#201f1f; border:1px solid #5c403f33; border-radius:1rem; padding:2rem; }
+
+  /* Contact map placeholder */
+  .map-embed { width:100%; height:300px; border-radius:1rem; border:1px solid #5c403f44; overflow:hidden; }
+
+  /* Admin link hidden */
+  #admin-hint { opacity:0; transition:opacity 0.3s; font-size:10px; color:#5c403f; }
+  footer:hover #admin-hint { opacity:1; }
+</style>
+</head>
+<body class="bg-surface text-on-surface font-body">
+
+<!-- Flash overlay -->
+<div id="flash-overlay"></div>
+
+<!-- ═══════════════════════════════════════════
+     LOADING SCREEN
+════════════════════════════════════════════ -->
+<div id="loader">
+  <div style="text-align:center;">
+    <div class="aperture" id="aperture">
+      <div class="blade" id="b1"></div>
+      <div class="blade" id="b2"></div>
+      <div class="blade" id="b3"></div>
+      <div class="blade" id="b4"></div>
+      <div class="blade" id="b5"></div>
+      <div class="blade" id="b6"></div>
+      <div class="blade" id="b7"></div>
+      <div class="blade" id="b8"></div>
+    </div>
+    <div style="color:#D72638; font-family:'Noto Serif',serif; font-style:italic; font-size:1.5rem; margin-top:16px; letter-spacing:0.05em;">SR Creation Studio</div>
+    <div class="load-bar"><div class="load-progress" id="load-progress"></div></div>
+    <div class="load-text" id="load-text">Loading your experience...</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     WHATSAPP FLOATING BUTTON
+════════════════════════════════════════════ -->
+<a href="https://wa.me/94761194985?text=Hi%20SR%20Creation%20Studio%2C%20I%20would%20like%20to%20book%20a%20session!" target="_blank" id="wa-float" title="Chat on WhatsApp">
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white"/>
+    <path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="#25D366"/>
+  </svg>
+</a>
+
+<!-- ═══════════════════════════════════════════
+     SERVICE MODAL (Book Now popup)
+════════════════════════════════════════════ -->
+<div id="service-modal">
+  <div id="modal-backdrop" onclick="closeModal()"></div>
+  <div id="modal-box">
+    <button onclick="closeModal()" style="position:absolute;top:1rem;right:1rem;color:#ab8887;background:none;border:none;cursor:pointer;font-size:1.5rem;">✕</button>
+    <div style="color:#e6c364; font-family:'Manrope',sans-serif; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; margin-bottom:8px;">Book a Session</div>
+    <h3 id="modal-title" style="font-family:'Noto Serif',serif; font-size:1.75rem; color:#e5e2e1; margin-bottom:8px;"></h3>
+    <p id="modal-desc" style="color:#e4bdbb; font-size:0.95rem; line-height:1.7; margin-bottom:1.5rem;"></p>
+    <div style="border-top:1px solid #5c403f; padding-top:1.5rem; display:flex; flex-direction:column; gap:0.75rem;">
+      <a id="modal-wa" href="#" target="_blank" style="display:flex; align-items:center; gap:12px; background:#25D366; color:white; padding:14px 20px; border-radius:0.75rem; font-family:'Manrope',sans-serif; font-weight:700; font-size:0.85rem; letter-spacing:0.1em; text-transform:uppercase; text-decoration:none; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white" fill-opacity="0.3"/><path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="white"/></svg>
+        Book via WhatsApp
+      </a>
+      <a href="mailto:srcreationstudiojaffna@gmail.com" id="modal-email" style="display:flex; align-items:center; gap:12px; background:#201f1f; border:1px solid #5c403f; color:#e5e2e1; padding:14px 20px; border-radius:0.75rem; font-family:'Manrope',sans-serif; font-weight:700; font-size:0.85rem; letter-spacing:0.1em; text-transform:uppercase; text-decoration:none; transition:border-color 0.2s;" onmouseover="this.style.borderColor='#D72638'" onmouseout="this.style.borderColor='#5c403f'">
+        <span class="material-symbols-outlined" style="font-size:1.25rem; color:#D72638;">mail</span>
+        Send Email Inquiry
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     LIGHTBOX
+════════════════════════════════════════════ -->
+<div id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt=""/>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TOP NAV
+════════════════════════════════════════════ -->
+<nav id="navbar" class="fixed top-0 z-50 w-full flex justify-between items-center px-8 py-5 bg-surface/80 backdrop-blur-xl transition-all duration-500">
+  <!-- LOGO -->
+  <div class="flex items-center gap-3">
+    <div id="nav-logo-wrap" style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid #D72638;flex-shrink:0;">
+      <img id="nav-logo-img" src="" alt="SR Logo" style="width:100%;height:100%;object-fit:cover;display:none;"/>
+      <div id="nav-logo-fallback" style="width:100%;height:100%;background:#D72638;display:flex;align-items:center;justify-content:center;">
+        <span style="color:white;font-family:'Noto Serif',serif;font-weight:700;font-size:14px;">SR</span>
+      </div>
+    </div>
+    <span style="font-family:'Noto Serif',serif;font-style:italic;font-size:1.25rem;color:#e5e2e1;">SR Creation Studio</span>
+  </div>
+  <div class="hidden md:flex items-center gap-8">
+    <a class="text-[#D72638] font-bold border-b-2 border-[#D72638] pb-1 font-label uppercase tracking-[0.1em] text-sm" href="#">Home</a>
+    <a class="text-[#e5e2e1] hover:text-[#e6c364] transition-colors font-label uppercase tracking-[0.1em] text-sm" href="#services">Services</a>
+    <a class="text-[#e5e2e1] hover:text-[#e6c364] transition-colors font-label uppercase tracking-[0.1em] text-sm" href="#portfolio">Portfolio</a>
+    <a class="text-[#e5e2e1] hover:text-[#e6c364] transition-colors font-label uppercase tracking-[0.1em] text-sm" href="#about">About</a>
+    <a class="text-[#e5e2e1] hover:text-[#e6c364] transition-colors font-label uppercase tracking-[0.1em] text-sm" href="#testimonials">Reviews</a>
+    <a class="text-[#e5e2e1] hover:text-[#e6c364] transition-colors font-label uppercase tracking-[0.1em] text-sm" href="#contact">Contact</a>
+  </div>
+  <!-- Mobile menu button -->
+  <div class="flex items-center gap-3">
+    <button onclick="window.location.href='https://wa.me/94761194985?text=Hi%20SR%20Creation%20Studio%2C%20I%20would%20like%20to%20book%20a%20session!'" class="bg-[#D72638] text-white px-6 py-2.5 rounded-md font-label font-bold uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all duration-300">
+      Book Now
+    </button>
+    <button id="mob-menu-btn" class="md:hidden text-[#e5e2e1]" onclick="document.getElementById('mob-menu').classList.toggle('hidden')">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile menu -->
+<div id="mob-menu" class="hidden fixed top-[72px] left-0 right-0 z-40 bg-[#131313]/95 backdrop-blur-xl px-8 py-6 flex flex-col gap-4 border-b border-[#5c403f]">
+  <a class="text-[#e5e2e1] hover:text-[#D72638] transition-colors font-label uppercase tracking-[0.1em] text-sm py-2" href="#services" onclick="document.getElementById('mob-menu').classList.add('hidden')">Services</a>
+  <a class="text-[#e5e2e1] hover:text-[#D72638] transition-colors font-label uppercase tracking-[0.1em] text-sm py-2" href="#portfolio" onclick="document.getElementById('mob-menu').classList.add('hidden')">Portfolio</a>
+  <a class="text-[#e5e2e1] hover:text-[#D72638] transition-colors font-label uppercase tracking-[0.1em] text-sm py-2" href="#about" onclick="document.getElementById('mob-menu').classList.add('hidden')">About</a>
+  <a class="text-[#e5e2e1] hover:text-[#D72638] transition-colors font-label uppercase tracking-[0.1em] text-sm py-2" href="#testimonials" onclick="document.getElementById('mob-menu').classList.add('hidden')">Reviews</a>
+  <a class="text-[#e5e2e1] hover:text-[#D72638] transition-colors font-label uppercase tracking-[0.1em] text-sm py-2" href="#contact" onclick="document.getElementById('mob-menu').classList.add('hidden')">Contact</a>
+</div>
+
+<main>
+<!-- ═══════════════════════════════════════════
+     HERO
+════════════════════════════════════════════ -->
+<section class="relative h-screen w-full flex items-center justify-center overflow-hidden bg-[#0e0e0e]">
+  <div class="absolute inset-0 z-0 overflow-hidden">
+    <img id="hero-bg" class="w-full h-full object-cover opacity-55 scale-110 transition-transform" style="will-change:transform" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEiMyATY72E9acx7UN5bOMZs_0-v3V-bROVcqwUJ_QVy0WFoVh_RYNnDInJaLGQLcbjBMXZF11x0Lne6VVjbmxWHcCoshHudC2vLTWD5Pitk_wJJa-ZQsNgbnLxQ5okiTK5PhJrt_ojobyEt-AZvOay-Ihy4Pp5EcwnChZVQHdZViodJX2yGWf77yU4eiDFdY-JLFZJ5gDL8kdL8Xagbx8Ud264Y1jxVYVFsfCtzdcf1hmClGO9lRt0UQbSk1fJQ7MwtnLQ2rnUHE" alt="Hero"/>
+    <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#131313]/50 to-[#131313]"></div>
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at center,rgba(215,38,56,0.15) 0%,transparent 70%)"></div>
+  </div>
+  <div class="relative z-10 text-center px-4 max-w-5xl reveal">
+    <div class="mb-8 relative inline-block">
+      <div style="position:absolute;inset:-16px;background:rgba(215,38,56,0.2);filter:blur(40px);border-radius:50%"></div>
+      <div id="hero-logo-wrap" style="width:160px;height:160px;border-radius:50%;overflow:hidden;border:4px solid #D72638;box-shadow:0 0 50px rgba(215,38,56,0.4);margin:0 auto;position:relative;z-index:10;">
+        <img id="hero-logo-img" src="" alt="SR Logo" style="width:100%;height:100%;object-fit:cover;display:none;"/>
+        <div id="hero-logo-fallback" style="width:100%;height:100%;background:linear-gradient(135deg,#1c1b1b,#2a2a2a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+          <span style="font-family:'Noto Serif',serif;font-style:italic;font-size:2rem;color:#D72638;font-weight:700;line-height:1;">SR</span>
+          <span style="font-family:'Manrope',sans-serif;font-size:9px;letter-spacing:0.25em;color:#e6c364;text-transform:uppercase;">Creation Studio</span>
+        </div>
+      </div>
+    </div>
+    <h1 class="font-headline text-5xl md:text-7xl text-on-surface mb-6 leading-tight tracking-tight">
+      We Don't Just Take Photos —<br/><span class="italic" style="color:#ffb3b1;">We Craft Memories</span>
+    </h1>
+    <p style="color:#e4bdbb;font-size:1.1rem;max-width:560px;margin:0 auto 2.5rem;line-height:1.8;">Cinematic storytelling from Jaffna, Sri Lanka — preserving your most precious moments with artistry and soul.</p>
+    <div class="flex flex-col md:flex-row gap-5 justify-center">
+      <button onclick="document.getElementById('portfolio').scrollIntoView({behavior:'smooth'})" class="px-10 py-4 bg-[#D72638] text-white rounded-md font-label font-bold uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-xl">photo_library</span> View Portfolio
+      </button>
+      <button onclick="openModal('Wedding Shoot','Capturing the soul of your union with cinematic elegance and candid emotional depth.','Wedding')" class="px-10 py-4 bg-transparent border-2 border-[#e6c364] text-[#e6c364] rounded-md font-label font-bold uppercase tracking-widest hover:bg-[#e6c364] hover:text-[#3d2e00] transition-all flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-xl">calendar_month</span> Book a Session
+      </button>
+    </div>
+  </div>
+  <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce">
+    <span class="material-symbols-outlined text-[#e6c364] text-3xl">expand_more</span>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     SERVICES
+════════════════════════════════════════════ -->
+<section id="services" class="py-24 px-8 bg-surface-container-low relative">
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-20 text-center md:text-left flex flex-col md:flex-row justify-between items-end gap-6 reveal">
+      <div>
+        <span class="text-[#e6c364] font-label uppercase tracking-[0.3em] text-sm mb-4 block">Our Expertise</span>
+        <h2 class="font-headline text-4xl md:text-6xl text-on-surface">Artistry in Every Frame</h2>
+      </div>
+      <p class="max-w-md text-on-surface-variant text-lg">Tailored photographic experiences designed for those who value timeless quality and cinematic storytelling.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="services-grid">
+      <!-- Cards injected by JS below for DRY code -->
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PORTFOLIO
+════════════════════════════════════════════ -->
+<section id="portfolio" class="py-24 px-4 bg-surface relative">
+  <div class="max-w-[1400px] mx-auto">
+    <div class="text-center mb-16 reveal">
+      <span class="text-[#e6c364] font-label uppercase tracking-[0.3em] text-sm mb-4 block">Our Work</span>
+      <h2 class="font-headline text-5xl md:text-7xl mb-10 tracking-tight">The Portfolio</h2>
+      <div class="flex flex-wrap justify-center gap-4 md:gap-6 pb-4">
+        <button class="filter-btn active px-6 py-2 border-b-2 border-[#D72638] text-[#ffb3b1] font-label uppercase tracking-widest text-sm" data-cat="ALL">ALL</button>
+        <button class="filter-btn px-6 py-2 border-b-2 border-transparent hover:border-[#e6c364]/50 text-on-surface-variant hover:text-[#e6c364] font-label uppercase tracking-widest text-sm transition-all" data-cat="WEDDING">WEDDING</button>
+        <button class="filter-btn px-6 py-2 border-b-2 border-transparent hover:border-[#e6c364]/50 text-on-surface-variant hover:text-[#e6c364] font-label uppercase tracking-widest text-sm transition-all" data-cat="BIRTHDAY">BIRTHDAY</button>
+        <button class="filter-btn px-6 py-2 border-b-2 border-transparent hover:border-[#e6c364]/50 text-on-surface-variant hover:text-[#e6c364] font-label uppercase tracking-widest text-sm transition-all" data-cat="MODEL">MODEL</button>
+        <button class="filter-btn px-6 py-2 border-b-2 border-transparent hover:border-[#e6c364]/50 text-on-surface-variant hover:text-[#e6c364] font-label uppercase tracking-widest text-sm transition-all" data-cat="STUDIO">STUDIO</button>
+        <button class="filter-btn px-6 py-2 border-b-2 border-transparent hover:border-[#e6c364]/50 text-on-surface-variant hover:text-[#e6c364] font-label uppercase tracking-widest text-sm transition-all" data-cat="ALBUM">ALBUM</button>
+        <button class="filter-btn px-6 py-2 border-b-2 border-transparent hover:border-[#e6c364]/50 text-on-surface-variant hover:text-[#e6c364] font-label uppercase tracking-widest text-sm transition-all" data-cat="PORTRAIT">PORTRAIT</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-[280px]" id="portfolio-grid">
+      <!-- Injected by JS -->
+    </div>
+    <div class="mt-16 text-center">
+      <a href="https://www.facebook.com" target="_blank" class="group inline-flex items-center gap-4 text-on-surface font-label uppercase tracking-[0.3em] text-sm border-b-2 border-outline-variant pb-2 hover:border-[#D72638] transition-all">
+        See More on Facebook
+        <span class="material-symbols-outlined group-hover:translate-x-2 transition-transform">arrow_forward</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     ABOUT
+════════════════════════════════════════════ -->
+<section id="about" class="py-24 px-8 bg-surface-container-low overflow-hidden">
+  <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-16">
+    <div class="w-full md:w-1/2 relative reveal">
+      <div style="position:absolute;top:-40px;left:-40px;width:160px;height:160px;border-left:1px solid #e6c364;border-top:1px solid #e6c364;opacity:0.3"></div>
+      <img class="rounded-lg shadow-2xl relative z-10 w-full aspect-[4/5] object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBU12XFqJobrYdzWTh_3dhXBKAWLQZaYb7LVwYlQbqXYdCw8j3yKu5MbBx2U1as4uyS59FVG8gXvQMfxCZw8sotCs_yq2iupR0ibAJCCIEIaXrDXWkWKO20izr73hEDawi_IqlwTDXba95zhf1sJr9TWxxgugvSah9tkyXeJpW1oKye4B8uyi2ZhJN6XjOGWZL1IArPgHHCBOiB3ultRetwqGGfvlhPFP-_Cx-PQZL0EgH93QXdXluuBUXF4cgZlDachHxWLm0WSUQ" alt="Photographer"/>
+      <div style="position:absolute;bottom:-40px;right:-40px;width:160px;height:160px;border-right:1px solid #D72638;border-bottom:1px solid #D72638;opacity:0.3"></div>
+    </div>
+    <div class="w-full md:w-1/2 reveal">
+      <span class="text-[#e6c364] font-label uppercase tracking-[0.3em] text-sm mb-4 block">Our Story</span>
+      <h2 class="font-headline text-4xl md:text-6xl text-on-surface mb-8">The Eye Behind The Lens</h2>
+      <p class="text-on-surface-variant text-lg leading-loose mb-8">At SR Creation Studio, we believe photography is an act of preservation. Each click is a deliberate choice to save a moment from the passage of time. Founded on the principles of high-end editorial aesthetics and deep emotional connection, we craft imagery that doesn't just look beautiful — it feels alive.</p>
+      <p class="text-on-surface-variant text-lg leading-loose mb-8">Based in Jaffna, Sri Lanka, we bring a unique blend of local culture and global aesthetic to every frame.</p>
+      <div class="flex items-center gap-8 border-t border-[#5c403f] pt-8">
+        <div>
+          <span class="block text-[#ffb3b1] font-headline text-4xl mb-1 counter" data-target="15">0</span>
+          <span class="text-on-surface-variant text-xs uppercase tracking-widest">Years Experience</span>
+        </div>
+        <div>
+          <span class="block text-[#ffb3b1] font-headline text-4xl mb-1 counter" data-target="2000">0</span>
+          <span class="text-on-surface-variant text-xs uppercase tracking-widest">Clients</span>
+        </div>
+        <div>
+          <span class="block text-[#ffb3b1] font-headline text-4xl mb-1 counter" data-target="50">0</span>
+          <span class="text-on-surface-variant text-xs uppercase tracking-widest">Awards</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     TESTIMONIALS
+════════════════════════════════════════════ -->
+<section id="testimonials" class="py-24 px-8 bg-surface relative">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-16 reveal">
+      <span class="text-[#e6c364] font-label uppercase tracking-[0.3em] text-sm mb-4 block">Client Stories</span>
+      <h2 class="font-headline text-4xl md:text-6xl text-on-surface">What Our Clients Say</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div class="testimonial-card reveal">
+        <div style="color:#e6c364;font-size:2rem;margin-bottom:12px;">❝</div>
+        <p style="color:#e4bdbb;line-height:1.8;font-style:italic;margin-bottom:1.25rem;">"SR Creation Studio captured our wedding day beyond our wildest dreams. Every frame tells a story. We cry happy tears every time we look at the album."</p>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#D72638;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-family:'Noto Serif',serif;">P</div>
+          <div><div style="color:#e5e2e1;font-weight:600;font-size:0.9rem;">Priya & Arjun</div><div style="color:#ab8887;font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;">Wedding — 2024</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal" style="transition-delay:0.1s">
+        <div style="color:#e6c364;font-size:2rem;margin-bottom:12px;">❝</div>
+        <p style="color:#e4bdbb;line-height:1.8;font-style:italic;margin-bottom:1.25rem;">"The birthday shoot was magical! The team made everyone feel so comfortable and the photos are stunning. We've booked them again for our anniversary!"</p>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#785d00;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-family:'Noto Serif',serif;">S</div>
+          <div><div style="color:#e5e2e1;font-weight:600;font-size:0.9rem;">Subashini K.</div><div style="color:#ab8887;font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;">Birthday — 2023</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal" style="transition-delay:0.2s">
+        <div style="color:#e6c364;font-size:2rem;margin-bottom:12px;">❝</div>
+        <p style="color:#e4bdbb;line-height:1.8;font-style:italic;margin-bottom:1.25rem;">"My model portfolio transformed completely. The lighting, the direction, the final edits — absolutely world class. My agency was impressed immediately."</p>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#6f7070;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-family:'Noto Serif',serif;">N</div>
+          <div><div style="color:#e5e2e1;font-weight:600;font-size:0.9rem;">Nithya R.</div><div style="color:#ab8887;font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;">Model Shoot — 2024</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     CTA
+════════════════════════════════════════════ -->
+<section class="py-24 bg-[#0e0e0e] relative overflow-hidden">
+  <div style="position:absolute;inset:0;opacity:0.08;">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:700px;border:1px solid #e6c364;border-radius:50%"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:900px;height:900px;border:1px solid #D72638;border-radius:50%"></div>
+  </div>
+  <div class="relative z-10 max-w-4xl mx-auto text-center px-4 reveal">
+    <h2 class="font-headline text-5xl md:text-7xl mb-8">Ready to Capture Your Moment?</h2>
+    <p class="text-on-surface-variant text-xl mb-12">Spaces are limited for wedding seasons. Secure your date with the masters of visual storytelling.</p>
+    <div class="flex flex-col sm:flex-row justify-center gap-6">
+      <a href="https://wa.me/94761194985?text=Hi%20SR%20Creation%20Studio%2C%20I%20would%20like%20to%20inquire%20about%20booking%20a%20session!" target="_blank" class="bg-[#D72638] text-white px-12 py-5 rounded-md font-label font-bold uppercase tracking-widest hover:scale-105 transition-transform flex items-center justify-center gap-3 text-sm">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="none"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white" fill-opacity="0.3"/><path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="white"/></svg>
+        Inquire via WhatsApp
+      </a>
+      <a href="mailto:srcreationstudiojaffna@gmail.com?subject=Session%20Inquiry&body=Hi%20SR%20Creation%20Studio%2C%20I%20would%20like%20to%20inquire%20about%20a%20session." class="bg-[#201f1f] border-2 border-[#5c403f] text-on-surface px-12 py-5 rounded-md font-label font-bold uppercase tracking-widest hover:bg-[#2a2a2a] hover:border-[#D72638] transition-all flex items-center justify-center gap-3 text-sm">
+        <span class="material-symbols-outlined text-xl">mail</span>
+        Email Us
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     CONTACT
+════════════════════════════════════════════ -->
+<section id="contact" class="py-24 px-8 bg-surface-container-low">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-16 reveal">
+      <span class="text-[#e6c364] font-label uppercase tracking-[0.3em] text-sm mb-4 block">Get In Touch</span>
+      <h2 class="font-headline text-4xl md:text-6xl text-on-surface">Find Us</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+      <!-- Contact info -->
+      <div class="reveal">
+        <div style="display:flex;flex-direction:column;gap:2rem;">
+          <div style="display:flex;align-items:flex-start;gap:1rem;">
+            <div style="width:48px;height:48px;background:#D72638;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <span class="material-symbols-outlined text-white">location_on</span>
+            </div>
+            <div>
+              <div style="color:#e6c364;font-size:0.75rem;letter-spacing:0.25em;text-transform:uppercase;margin-bottom:4px;">Address</div>
+              <div style="color:#e5e2e1;font-size:1rem;line-height:1.6;">Puttur Road, Jaffna,<br/>Sri Lanka — 40000</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:1rem;">
+            <div style="width:48px;height:48px;background:#25D366;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <span class="material-symbols-outlined text-white">phone</span>
+            </div>
+            <div>
+              <div style="color:#e6c364;font-size:0.75rem;letter-spacing:0.25em;text-transform:uppercase;margin-bottom:4px;">Phone / WhatsApp</div>
+              <a href="https://wa.me/94761194985" target="_blank" style="color:#e5e2e1;font-size:1rem;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#25D366'" onmouseout="this.style.color='#e5e2e1'">+94 76 119 4985</a>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:1rem;">
+            <div style="width:48px;height:48px;background:#D72638;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <span class="material-symbols-outlined text-white">mail</span>
+            </div>
+            <div>
+              <div style="color:#e6c364;font-size:0.75rem;letter-spacing:0.25em;text-transform:uppercase;margin-bottom:4px;">Email</div>
+              <a href="mailto:srcreationstudiojaffna@gmail.com" style="color:#e5e2e1;font-size:0.9rem;text-decoration:none;word-break:break-all;transition:color 0.2s;" onmouseover="this.style.color='#D72638'" onmouseout="this.style.color='#e5e2e1'">srcreationstudiojaffna@gmail.com</a>
+            </div>
+          </div>
+          <!-- Social -->
+          <div style="border-top:1px solid #5c403f;padding-top:1.5rem;">
+            <div style="color:#e6c364;font-size:0.75rem;letter-spacing:0.25em;text-transform:uppercase;margin-bottom:1rem;">Follow Us</div>
+            <div style="display:flex;gap:1rem;">
+              <!-- Facebook -->
+              <a href="https://www.facebook.com/srcreationstudio" target="_blank" style="width:48px;height:48px;background:#1877F2;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;transition:transform 0.2s,filter 0.2s;text-decoration:none;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </a>
+              <!-- Instagram -->
+              <a href="https://www.instagram.com/srcreationstudio" target="_blank" style="width:48px;height:48px;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;transition:transform 0.2s;text-decoration:none;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+              </a>
+              <!-- WhatsApp -->
+              <a href="https://wa.me/94761194985" target="_blank" style="width:48px;height:48px;background:#25D366;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;transition:transform 0.2s;text-decoration:none;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white" fill-opacity="0.2"/><path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="white"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Map embed -->
+      <div class="reveal">
+        <iframe class="map-embed" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3931.0!2d80.0!3d9.67!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3afe53fd7bc01c43%3A0x4d3b3c7a8e19e2c0!2sJaffna%2C%20Sri%20Lanka!5e0!3m2!1sen!2slk!4v1234567890" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div style="background:#201f1f;border:1px solid #5c403f;border-radius:0.75rem;padding:1rem 1.25rem;margin-top:1rem;display:flex;align-items:center;gap:0.75rem;">
+          <span class="material-symbols-outlined text-[#D72638]">schedule</span>
+          <div>
+            <div style="color:#e6c364;font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;">Hours</div>
+            <div style="color:#e5e2e1;font-size:0.85rem;">Mon–Sat: 9:00 AM – 7:00 PM &nbsp;|&nbsp; Sun: By Appointment</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ═══════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════ -->
+<footer class="w-full py-12 px-8 bg-[#0e0e0e]">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex flex-col md:flex-row justify-between items-start gap-8 mb-8">
+      <div>
+        <div style="font-family:'Noto Serif',serif;font-style:italic;font-size:1.5rem;color:#D72638;margin-bottom:8px;">SR Creation Studio</div>
+        <div style="color:#e5e2e1;opacity:0.5;font-size:0.85rem;line-height:1.6;">Puttur Road, Jaffna, Sri Lanka — 40000<br/>+94 76 119 4985</div>
+      </div>
+      <div class="flex flex-wrap gap-8">
+        <a href="#services" style="color:rgba(229,226,225,0.5);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.15em;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#D72638'" onmouseout="this.style.color='rgba(229,226,225,0.5)'">Services</a>
+        <a href="#portfolio" style="color:rgba(229,226,225,0.5);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.15em;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#D72638'" onmouseout="this.style.color='rgba(229,226,225,0.5)'">Portfolio</a>
+        <a href="#about" style="color:rgba(229,226,225,0.5);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.15em;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#D72638'" onmouseout="this.style.color='rgba(229,226,225,0.5)'">About</a>
+        <a href="#contact" style="color:rgba(229,226,225,0.5);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.15em;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#D72638'" onmouseout="this.style.color='rgba(229,226,225,0.5)'">Contact</a>
+        <a href="https://www.facebook.com/srcreationstudio" target="_blank" style="color:rgba(229,226,225,0.5);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.15em;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#1877F2'" onmouseout="this.style.color='rgba(229,226,225,0.5)'">Facebook</a>
+        <a href="https://www.instagram.com/srcreationstudio" target="_blank" style="color:rgba(229,226,225,0.5);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.15em;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#bc1888'" onmouseout="this.style.color='rgba(229,226,225,0.5)'">Instagram</a>
+      </div>
+    </div>
+    <div style="border-top:1px solid #5c403f33;padding-top:2rem;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;">
+      <div style="color:rgba(229,226,225,0.4);font-size:0.8rem;">© 2024 SR Creation Studio. All Rights Reserved.</div>
+      <a href="admin.html" id="admin-hint" style="color:#5c403f;font-size:10px;text-decoration:none;letter-spacing:0.1em;">Admin Portal</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════ -->
+<script>
+/* ─── SERVICES DATA ─── */
+const SERVICES = [
+  { icon:"photo_frame",  title:"Studio Frame",     cat:"STUDIO",   desc:"High-end bespoke framing and professional studio setups for lasting physical legacies." },
+  { icon:"auto_stories", title:"Album Design",      cat:"ALBUM",    desc:"Curation and design of premium, handcrafted luxury photo albums with editorial layout." },
+  { icon:"person_pin_circle", title:"Model Shoot",  cat:"MODEL",    desc:"Professional portfolio sessions for aspiring and professional models with high-fashion lighting." },
+  { icon:"favorite",     title:"Wedding Shoot",     cat:"WEDDING",  desc:"Capturing the soul of your union with cinematic elegance and candid emotional depth." },
+  { icon:"cake",         title:"Birthday Shoot",    cat:"BIRTHDAY", desc:"Vibrant storytelling for your milestone moments, preserving the joy of celebration forever." },
+  { icon:"portrait",     title:"Portrait Session",  cat:"PORTRAIT", desc:"Individual or family portraits that focus on the unique essence and character of the subjects." }
+];
+
+/* ─── DEFAULT PORTFOLIO PHOTOS ─── */
+const DEFAULT_PHOTOS = [
+  { url:"https://lh3.googleusercontent.com/aida-public/AB6AXuAY0BFKt1iZ1WJGudsPphNxzFHAOHE74xii5UGkjcDVEsnw7prNbl7RWc-GhsC2TEYJcrTidYji5UOWzeV21vGWDC8T8Ce15XwRBQsdyzg8QceZ1rLkDzyIh94Z2AjVekigKHBxZJM1Wv8RK5VnOVaXUp9QuOOjAii1FWWZrpSY_0rpHknQ1_xRmE9_lp4FNYG7tu0VSG8WcSy0JCx2ZQqZz_6uYuPFej7W687uI_vRGni9j1BsgzTPz3WQr2xrNJCtsodaNPTnkqk", cat:"WEDDING", label:"Eternal Vows", span:"row" },
+  { url:"https://lh3.googleusercontent.com/aida-public/AB6AXuCYW-C5yfYFyVBT0naHTMqumkSyIRzAB-hXzpEjZHl8QbIt6GbDflcfhWryk8QHFmiGUbWVqex8Iww_81nsC0m2ZSPMPMVptVxEYAx4x1ErVp26JFmJxFzXNxwNdEz5a2gjgUXsBAL5R4zhlZJu4b1Au_6FQrjomoejszAWfrk91iIO6_nckbJpd62jeJrUlJYjjL8qG9vM0w0j3-tk2NUXnBYJupJwVumuzpVRofq-cQzSKoR2lLoe3JVSRb6_wEthcQCVjKgBPEs", cat:"MODEL",   label:"Urban Gaze",   span:"" },
+  { url:"https://lh3.googleusercontent.com/aida-public/AB6AXuCEjaDkSWEMoa_Hryoi7_grM3QoOHa-VpNCI1ubHo-78FTMA89_P5xx8Nitix13OGPGE9SS9ZEPKVrzLHq9XVnVkltj9397azXviCYjB0riHTrFvhmUfAbwbUa0CoRC_aRpFdXJ0a9JGMARzH0fqSm-r7GZIEQN5mcrZqsDAc4w2Wh_Q1jXXO_J41QQJzEfDK0M9PkydlM5vJbBbPorp66Jj1Mdbnpdxvbkin_dQCPIPaMD2898tEn_5bmxa6PFc2YPJzuuB7-1k3A", cat:"BIRTHDAY", label:"Golden Years", span:"" },
+  { url:"https://lh3.googleusercontent.com/aida-public/AB6AXuA61Wl9f5d4ELbd2kM0zkrN7RUI5VGc8u-9qowywxxgxfAxhMkbA-FXBsId1BUQvVUUjT54ctFQtTtW001nY_-0ZO-EvU504lHJZX9yPlbm0GvXwNyF4nY1VfOEGTpJqnEZ9klhZSwU8X0zFuAOIdXxj5VPEtWBmpPBmKlJZ_soFhK7JLhDOhQ-h0cVnht94xBVf0hDdlw-Ufeu0sp6BTnbZZeZbHR3xZeeZEijtAMvz_cm7SlovCArwfKchrWz8fzyk6VYHsdCciE", cat:"MODEL",   label:"Desert Mirage", span:"col" },
+  { url:"https://lh3.googleusercontent.com/aida-public/AB6AXuDZnaYUfJohm_YS98OXD2HV_JJDHNjKioMN7NQa6mVyr0prHE1TMnOl9mckc2S1BQ30wdILuRuDXMiG6C-y5eL4ARABnKL7jq3P1tIJa2knhRP1vN1ff6X8o2iVyE7cQC_DTySLbPc3pgDiMlFGsy4aF16M1xktN5-uM-8_Z_vWH4eBiC8SQK2Vu5E6g_aHR8lkNlgppkjoysRniJmDYoTQ3xU2UMATdjoQX-HIHs7q4S0sapzErVn_6o4P8vIliRg_kCQb0ulBbco", cat:"STUDIO",  label:"Monochrome Soul", span:"" }
+];
+
+/* ─── LOAD LOGO FROM ADMIN ─── */
+function loadLogo() {
+  const logo = localStorage.getItem('sr_logo');
+  if (logo) {
+    document.getElementById('nav-logo-img').src = logo;
+    document.getElementById('nav-logo-img').style.display = 'block';
+    document.getElementById('nav-logo-fallback').style.display = 'none';
+    document.getElementById('hero-logo-img').src = logo;
+    document.getElementById('hero-logo-img').style.display = 'block';
+    document.getElementById('hero-logo-fallback').style.display = 'none';
+  }
+}
+
+/* ─── BUILD SERVICES GRID ─── */
+function buildServices() {
+  const grid = document.getElementById('services-grid');
+  grid.innerHTML = SERVICES.map(s => `
+    <div class="group relative bg-surface-container p-10 rounded-lg overflow-hidden transition-all duration-500 hover:-translate-y-2 border border-outline-variant/10 cursor-pointer reveal"
+         onclick="openModal('${s.title}','${s.desc}','${s.cat}')">
+      <div class="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-25 transition-opacity">
+        <span class="material-symbols-outlined text-8xl" style="font-variation-settings:'FILL' 1;">${s.icon}</span>
+      </div>
+      <span class="material-symbols-outlined text-[#ffb3b1] text-4xl mb-6 block">${s.icon}</span>
+      <h3 class="font-headline text-2xl mb-4">${s.title}</h3>
+      <p class="text-on-surface-variant font-light leading-relaxed">${s.desc}</p>
+      <div class="mt-8 flex items-center text-[#ffb3b1] font-label text-sm uppercase tracking-widest gap-2 opacity-0 group-hover:opacity-100 transition-all">
+        Book Now <span class="material-symbols-outlined text-xs">arrow_forward</span>
+      </div>
+      <div class="absolute bottom-0 left-0 w-full h-1 bg-[#D72638] scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
+    </div>
+  `).join('');
+}
+
+/* ─── BUILD PORTFOLIO GRID ─── */
+function buildPortfolio(filter = 'ALL') {
+  const adminPhotos = JSON.parse(localStorage.getItem('sr_photos') || '[]');
+  const all = [...DEFAULT_PHOTOS, ...adminPhotos];
+  const photos = filter === 'ALL' ? all : all.filter(p => p.cat === filter);
+  const grid = document.getElementById('portfolio-grid');
+  grid.innerHTML = photos.map((p, i) => {
+    let spanClass = '';
+    if (p.span === 'row') spanClass = 'md:row-span-2';
+    if (p.span === 'col') spanClass = 'lg:col-span-2';
+    return `
+      <div class="${spanClass} group relative overflow-hidden rounded-lg cursor-pointer" onclick="openLightbox('${p.url}')">
+        <img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src="${p.url}" alt="${p.label||'Portfolio'}"/>
+        <div class="absolute inset-0 bg-[#D72638]/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
+          <span class="text-white font-label uppercase tracking-widest text-xs mb-2">${p.cat}</span>
+          <h4 class="text-white font-headline text-2xl">${p.label||''}</h4>
+        </div>
+      </div>
+    `;
+  }).join('') || '<div style="grid-column:1/-1;text-align:center;color:#ab8887;padding:3rem;">No photos in this category yet. <a href="admin.html" style="color:#D72638;">Add photos in Admin ›</a></div>';
+}
+
+/* ─── FILTER BUTTONS ─── */
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.remove('active','border-[#D72638]','text-[#ffb3b1]');
+      b.classList.add('border-transparent','text-on-surface-variant');
+    });
+    btn.classList.add('active','border-[#D72638]','text-[#ffb3b1]');
+    btn.classList.remove('border-transparent','text-on-surface-variant');
+    buildPortfolio(btn.dataset.cat);
+  });
+});
+
+/* ─── MODAL ─── */
+function openModal(title, desc, cat) {
+  const waMsg = encodeURIComponent(`Hi SR Creation Studio, I'm interested in booking a ${title} session!`);
+  const emailSubj = encodeURIComponent(`${title} Session Inquiry`);
+  const emailBody = encodeURIComponent(`Hi SR Creation Studio,\n\nI would like to inquire about a ${title} session.\n\nPlease let me know your availability and packages.\n\nThank you!`);
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-desc').textContent = desc;
+  document.getElementById('modal-wa').href = `https://wa.me/94761194985?text=${waMsg}`;
+  document.getElementById('modal-email').href = `mailto:srcreationstudiojaffna@gmail.com?subject=${emailSubj}&body=${emailBody}`;
+  document.getElementById('service-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('service-modal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+/* ─── LIGHTBOX ─── */
+function openLightbox(url) { document.getElementById('lightbox-img').src = url; document.getElementById('lightbox').classList.add('active'); document.body.style.overflow='hidden'; }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('active'); document.body.style.overflow=''; }
+
+/* ─── SCROLL REVEAL ─── */
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+function initReveal() { document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el)); }
+
+/* ─── COUNTER ANIMATION ─── */
+function animateCounters() {
+  document.querySelectorAll('.counter').forEach(el => {
+    const target = parseInt(el.dataset.target);
+    const suffix = target >= 1000 ? 'k+' : '+';
+    const display = target >= 1000 ? Math.round(target/1000) : target;
+    let current = 0;
+    const step = display / 60;
+    const timer = setInterval(() => {
+      current = Math.min(current + step, display);
+      el.textContent = Math.round(current) + suffix;
+      if (current >= display) clearInterval(timer);
+    }, 20);
+  });
+}
+const counterObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { animateCounters(); counterObs.disconnect(); } });
+}, { threshold: 0.5 });
+document.querySelectorAll('.counter').forEach(el => counterObs.observe(el));
+
+/* ─── PARALLAX ─── */
+window.addEventListener('scroll', () => {
+  const hero = document.getElementById('hero-bg');
+  if (hero) hero.style.transform = `scale(1.1) translateY(${window.scrollY * 0.3}px)`;
+  // Navbar shrink
+  const nav = document.getElementById('navbar');
+  if (window.scrollY > 60) nav.style.padding = '0.75rem 2rem';
+  else nav.style.padding = '1.25rem 2rem';
+});
+
+/* ─── FLASH LOADING ANIMATION ─── */
+function runLoader() {
+  const progress = document.getElementById('load-progress');
+  const blades = document.querySelectorAll('.blade');
+  const loader = document.getElementById('loader');
+  const flash = document.getElementById('flash-overlay');
+  const loadText = document.getElementById('load-text');
+  const messages = ["Loading your experience...", "Preparing the studio...", "Almost ready..."];
+  let msgIdx = 0;
+
+  // Progress bar
+  let pct = 0;
+  const barInterval = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 8, 95);
+    progress.style.width = pct + '%';
+    if (pct > 40 && msgIdx === 0) { msgIdx=1; loadText.textContent = messages[1]; }
+    if (pct > 70 && msgIdx === 1) { msgIdx=2; loadText.textContent = messages[2]; }
+  }, 100);
+
+  // Open aperture
+  setTimeout(() => {
+    blades.forEach(b => b.classList.add('open'));
+  }, 400);
+
+  // Flash effect
+  setTimeout(() => {
+    clearInterval(barInterval);
+    progress.style.width = '100%';
+    // Close aperture
+    blades.forEach(b => { b.classList.remove('open'); b.classList.add('close'); });
+    // White flash
+    setTimeout(() => {
+      flash.classList.add('flash');
+      setTimeout(() => {
+        flash.style.transition = 'opacity 0.4s ease';
+        flash.style.opacity = '0';
+        loader.classList.add('hidden');
+        // Init reveals after load
+        setTimeout(() => {
+          initReveal();
+          buildServices();
+          buildPortfolio();
+          loadLogo();
+        }, 200);
+      }, 120);
+    }, 250);
+  }, 1800);
+}
+
+window.addEventListener('DOMContentLoaded', runLoader);
+</script>
+</body>
+</html>

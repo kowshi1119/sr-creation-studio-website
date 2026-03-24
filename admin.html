@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SR Admin Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root {
+  --bg: #0e0e0e;
+  --surface: #131313;
+  --surface-high: #1c1b1b;
+  --surface-mid: #201f1f;
+  --border: #5c403f55;
+  --border-hover: #D72638;
+  --red: #D72638;
+  --gold: #e6c364;
+  --text: #e5e2e1;
+  --text-dim: #ab8887;
+  --green: #25D366;
+}
+body { background:var(--bg); color:var(--text); font-family:'Manrope',sans-serif; min-height:100vh; }
+.material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24; font-family:'Material Symbols Outlined'; }
+
+/* ── LOGIN ── */
+#login-screen {
+  position:fixed;inset:0;z-index:1000;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+}
+.login-box { background:var(--surface-high);border:1px solid var(--border);border-radius:1.5rem;padding:3rem;width:380px;text-align:center; }
+.login-logo { font-family:'Noto Serif',serif;font-style:italic;font-size:2rem;color:var(--red);margin-bottom:0.25rem; }
+.login-sub { font-size:0.7rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:2rem; }
+.login-input {
+  width:100%;background:var(--surface-mid);border:1px solid var(--border);border-radius:0.75rem;
+  padding:14px 16px;color:var(--text);font-family:'Manrope',sans-serif;font-size:0.95rem;
+  outline:none;transition:border-color 0.2s;margin-bottom:1rem;
+}
+.login-input:focus { border-color:var(--red); }
+.login-btn {
+  width:100%;background:var(--red);color:white;border:none;border-radius:0.75rem;
+  padding:14px;font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;
+  letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:filter 0.2s;
+}
+.login-btn:hover { filter:brightness(1.15); }
+.login-error { color:#ff6b6b;font-size:0.8rem;margin-top:0.5rem;display:none; }
+
+/* ── MAIN LAYOUT ── */
+#app { display:none; min-height:100vh; }
+.sidebar {
+  position:fixed;top:0;left:0;height:100vh;width:260px;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:100;
+  padding:1.5rem 0;
+}
+.sidebar-logo { padding:0 1.5rem 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1rem; }
+.sidebar-logo-title { font-family:'Noto Serif',serif;font-style:italic;color:var(--red);font-size:1.1rem; }
+.sidebar-logo-sub { font-size:0.65rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--gold);margin-top:2px; }
+.nav-item {
+  display:flex;align-items:center;gap:12px;padding:12px 1.5rem;
+  cursor:pointer;transition:background 0.2s;border-left:3px solid transparent;
+  font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);
+}
+.nav-item:hover { background:var(--surface-high);color:var(--text); }
+.nav-item.active { border-left-color:var(--red);color:var(--red);background:rgba(215,38,56,0.08); }
+.nav-item .material-symbols-outlined { font-size:1.2rem; }
+.sidebar-bottom { margin-top:auto;padding:1.5rem;border-top:1px solid var(--border); }
+.logout-btn {
+  display:flex;align-items:center;gap:8px;background:none;border:1px solid var(--border);
+  color:var(--text-dim);padding:10px 16px;border-radius:0.75rem;font-family:'Manrope',sans-serif;
+  font-size:0.8rem;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;letter-spacing:0.1em;text-transform:uppercase;
+}
+.logout-btn:hover { border-color:var(--red);color:var(--red); }
+
+/* ── MAIN CONTENT ── */
+.main { margin-left:260px;padding:2rem;min-height:100vh; }
+.page { display:none; }
+.page.active { display:block; }
+.page-header { margin-bottom:2rem; }
+.page-title { font-family:'Noto Serif',serif;font-size:2rem;color:var(--text);margin-bottom:4px; }
+.page-sub { color:var(--text-dim);font-size:0.85rem; }
+
+/* ── CARDS ── */
+.card { background:var(--surface-high);border:1px solid var(--border);border-radius:1rem;padding:1.5rem; }
+.stat-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2rem; }
+.stat-card { background:var(--surface-mid);border:1px solid var(--border);border-radius:1rem;padding:1.25rem; }
+.stat-val { font-family:'Noto Serif',serif;font-size:2rem;color:var(--red);margin-bottom:4px; }
+.stat-label { font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim); }
+
+/* ── FORM ELEMENTS ── */
+.form-group { margin-bottom:1.25rem; }
+.form-label { display:block;font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:6px; }
+.form-input, .form-select {
+  width:100%;background:var(--surface-mid);border:1px solid var(--border);border-radius:0.75rem;
+  padding:12px 14px;color:var(--text);font-family:'Manrope',sans-serif;font-size:0.9rem;
+  outline:none;transition:border-color 0.2s;
+}
+.form-input:focus, .form-select:focus { border-color:var(--red); }
+.form-select option { background:var(--surface-mid); }
+.btn-primary {
+  background:var(--red);color:white;border:none;border-radius:0.75rem;
+  padding:12px 24px;font-family:'Manrope',sans-serif;font-weight:700;font-size:0.8rem;
+  letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:filter 0.2s;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.btn-primary:hover { filter:brightness(1.15); }
+.btn-secondary {
+  background:var(--surface-mid);color:var(--text);border:1px solid var(--border);border-radius:0.75rem;
+  padding:12px 24px;font-family:'Manrope',sans-serif;font-weight:600;font-size:0.8rem;
+  letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.btn-secondary:hover { border-color:var(--red); }
+.btn-danger { background:#93000a;color:#ffdad6; }
+
+/* ── FILE UPLOAD ── */
+.upload-zone {
+  border:2px dashed var(--border);border-radius:1rem;padding:3rem;
+  text-align:center;cursor:pointer;transition:all 0.2s;
+}
+.upload-zone:hover, .upload-zone.drag { border-color:var(--red);background:rgba(215,38,56,0.05); }
+.upload-zone input { display:none; }
+
+/* ── PHOTO GRID ── */
+.photo-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-top:1.5rem; }
+.photo-item {
+  position:relative;aspect-ratio:1;border-radius:0.75rem;overflow:hidden;
+  border:1px solid var(--border);cursor:pointer;
+  transition:transform 0.2s;
+}
+.photo-item:hover { transform:scale(1.02); }
+.photo-item img { width:100%;height:100%;object-fit:cover; }
+.photo-item .overlay {
+  position:absolute;inset:0;background:rgba(0,0,0,0.75);opacity:0;
+  transition:opacity 0.2s;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;
+}
+.photo-item:hover .overlay { opacity:1; }
+.photo-cat-badge {
+  position:absolute;top:8px;left:8px;background:var(--red);color:white;
+  font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;
+  padding:3px 8px;border-radius:4px;
+}
+.delete-btn {
+  background:#93000a;color:#ffdad6;border:none;border-radius:0.5rem;
+  padding:8px 14px;font-size:0.75rem;font-weight:600;letter-spacing:0.1em;
+  text-transform:uppercase;cursor:pointer;font-family:'Manrope',sans-serif;
+  display:flex;align-items:center;gap:6px;
+}
+
+/* ── TOAST ── */
+#toast {
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  background:var(--surface-high);border:1px solid var(--border);border-radius:0.75rem;
+  padding:12px 20px;font-size:0.85rem;color:var(--text);
+  transform:translateY(80px);opacity:0;transition:all 0.3s ease;
+  display:flex;align-items:center;gap:10px;
+}
+#toast.show { transform:translateY(0);opacity:1; }
+#toast.success { border-left:4px solid var(--green); }
+#toast.error { border-left:4px solid var(--red); }
+
+/* ── LOGO UPLOAD ── */
+.logo-preview {
+  width:120px;height:120px;border-radius:50%;border:2px solid var(--border);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  background:var(--surface-mid);margin-bottom:1rem;
+}
+.logo-preview img { width:100%;height:100%;object-fit:cover; }
+
+/* ── RESPONSIVE ── */
+@media (max-width:768px) {
+  .sidebar { transform:translateX(-260px);transition:transform 0.3s; }
+  .sidebar.open { transform:translateX(0); }
+  .main { margin-left:0; }
+  #mob-toggle { display:flex; }
+}
+#mob-toggle { display:none;position:fixed;top:16px;left:16px;z-index:200;background:var(--red);color:white;border:none;border-radius:0.5rem;padding:8px;cursor:pointer;align-items:center;justify-content:center; }
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--red);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast"><span id="toast-icon" class="material-symbols-outlined"></span><span id="toast-msg"></span></div>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">SR Creation Studio</div>
+    <div class="login-sub">Admin Portal</div>
+    <div style="margin-bottom:0.5rem;text-align:left;">
+      <input type="text" class="login-input" id="login-user" placeholder="Username" autocomplete="username"/>
+    </div>
+    <div style="margin-bottom:0.5rem;text-align:left;">
+      <input type="password" class="login-input" id="login-pass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div class="login-error" id="login-error">Incorrect username or password</div>
+    <button class="login-btn" onclick="doLogin()">
+      <span class="material-symbols-outlined" style="font-size:1rem;vertical-align:middle;">lock_open</span>
+      Sign In
+    </button>
+    <div style="margin-top:1.5rem;font-size:0.7rem;color:var(--text-dim);">Default: admin / srcstudio2024</div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <!-- Mobile toggle -->
+  <button id="mob-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+    <span class="material-symbols-outlined">menu</span>
+  </button>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-title">SR Creation Studio</div>
+      <div class="sidebar-logo-sub">Admin Portal</div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="material-symbols-outlined">dashboard</span>Dashboard</div>
+      <div class="nav-item" onclick="showPage('photos',this)"><span class="material-symbols-outlined">photo_library</span>Manage Photos</div>
+      <div class="nav-item" onclick="showPage('upload',this)"><span class="material-symbols-outlined">cloud_upload</span>Upload Photos</div>
+      <div class="nav-item" onclick="showPage('logo',this)"><span class="material-symbols-outlined">image</span>Logo & Branding</div>
+      <div class="nav-item" onclick="showPage('settings',this)"><span class="material-symbols-outlined">settings</span>Settings</div>
+    </nav>
+    <div class="sidebar-bottom">
+      <a href="index.html" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--gold);font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;margin-bottom:0.75rem;opacity:0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+        <span class="material-symbols-outlined" style="font-size:1rem;">open_in_new</span>View Website
+      </a>
+      <button class="logout-btn" onclick="logout()">
+        <span class="material-symbols-outlined" style="font-size:1rem;">logout</span>Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1 class="page-title">Dashboard</h1>
+        <div class="page-sub">Welcome back to SR Creation Studio admin panel</div>
+      </div>
+      <div class="stat-grid" id="stat-grid"></div>
+      <div class="card">
+        <div style="font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;">Quick Actions</div>
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;">
+          <button class="btn-primary" onclick="showPage('upload',document.querySelector('.nav-item:nth-child(3)'))">
+            <span class="material-symbols-outlined">add_photo_alternate</span>Upload New Photo
+          </button>
+          <button class="btn-secondary" onclick="showPage('photos',document.querySelector('.nav-item:nth-child(2)'))">
+            <span class="material-symbols-outlined">photo_library</span>Manage Portfolio
+          </button>
+          <a href="index.html" target="_blank" class="btn-secondary" style="text-decoration:none;">
+            <span class="material-symbols-outlined">visibility</span>Preview Website
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANAGE PHOTOS -->
+    <div class="page" id="page-photos">
+      <div class="page-header">
+        <h1 class="page-title">Manage Photos</h1>
+        <div class="page-sub">View and delete portfolio photos by category</div>
+      </div>
+      <!-- Filter -->
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.5rem;" id="photo-filters">
+        <button class="btn-primary" data-filt="ALL" onclick="filterPhotos('ALL',this)">ALL</button>
+        <button class="btn-secondary" data-filt="WEDDING" onclick="filterPhotos('WEDDING',this)">Wedding</button>
+        <button class="btn-secondary" data-filt="BIRTHDAY" onclick="filterPhotos('BIRTHDAY',this)">Birthday</button>
+        <button class="btn-secondary" data-filt="MODEL" onclick="filterPhotos('MODEL',this)">Model</button>
+        <button class="btn-secondary" data-filt="STUDIO" onclick="filterPhotos('STUDIO',this)">Studio</button>
+        <button class="btn-secondary" data-filt="ALBUM" onclick="filterPhotos('ALBUM',this)">Album</button>
+        <button class="btn-secondary" data-filt="PORTRAIT" onclick="filterPhotos('PORTRAIT',this)">Portrait</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <div style="font-size:0.8rem;color:var(--text-dim);" id="photo-count-label">Loading...</div>
+        <button class="btn-secondary btn-danger" style="font-size:0.75rem;padding:8px 14px;" onclick="clearAllPhotos()">
+          <span class="material-symbols-outlined" style="font-size:0.9rem;">delete_sweep</span>Clear All Uploaded
+        </button>
+      </div>
+      <div class="photo-grid" id="photo-grid"></div>
+    </div>
+
+    <!-- UPLOAD PHOTOS -->
+    <div class="page" id="page-upload">
+      <div class="page-header">
+        <h1 class="page-title">Upload Photos</h1>
+        <div class="page-sub">Add photos to your portfolio — upload from device or enter URL</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" class="upload-grid">
+        <!-- Upload method 1: File -->
+        <div class="card">
+          <div style="font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;">Upload from Device</div>
+          <div class="upload-zone" id="dropzone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+            <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(this.files)"/>
+            <span class="material-symbols-outlined" style="font-size:3rem;color:var(--red);display:block;margin-bottom:0.75rem;">cloud_upload</span>
+            <div style="font-weight:600;margin-bottom:4px;">Click or drag photos here</div>
+            <div style="font-size:0.8rem;color:var(--text-dim);">JPG, PNG, WEBP supported</div>
+          </div>
+          <!-- Staged photos -->
+          <div id="staged-list" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.75rem;"></div>
+        </div>
+        <!-- Upload method 2: URL -->
+        <div class="card">
+          <div style="font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;">Add by Photo URL</div>
+          <div class="form-group">
+            <label class="form-label">Image URL</label>
+            <input type="url" class="form-input" id="url-input" placeholder="https://example.com/photo.jpg"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-select" id="url-cat">
+              <option value="WEDDING">Wedding</option>
+              <option value="BIRTHDAY">Birthday</option>
+              <option value="MODEL">Model</option>
+              <option value="STUDIO">Studio</option>
+              <option value="ALBUM">Album</option>
+              <option value="PORTRAIT">Portrait</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Caption / Title</label>
+            <input type="text" class="form-input" id="url-label" placeholder="e.g. Eternal Vows"/>
+          </div>
+          <!-- URL Preview -->
+          <div id="url-preview" style="width:100%;aspect-ratio:16/9;background:var(--surface-mid);border-radius:0.75rem;overflow:hidden;margin-bottom:1rem;display:none;">
+            <img id="url-preview-img" style="width:100%;height:100%;object-fit:cover;" alt="Preview"/>
+          </div>
+          <div style="display:flex;gap:0.75rem;">
+            <button class="btn-secondary" onclick="previewUrl()" style="flex:1;">
+              <span class="material-symbols-outlined" style="font-size:1rem;">visibility</span>Preview
+            </button>
+            <button class="btn-primary" onclick="addByUrl()" style="flex:1;">
+              <span class="material-symbols-outlined" style="font-size:1rem;">add</span>Add Photo
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Bulk category assign for staged -->
+      <div class="card" style="margin-top:1.5rem;display:none;" id="bulk-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+          <div style="font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);">Assign Category & Save</div>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <select class="form-select" id="bulk-cat" style="width:auto;min-width:150px;">
+              <option value="WEDDING">Wedding</option>
+              <option value="BIRTHDAY">Birthday</option>
+              <option value="MODEL">Model</option>
+              <option value="STUDIO">Studio</option>
+              <option value="ALBUM">Album</option>
+              <option value="PORTRAIT">Portrait</option>
+            </select>
+            <button class="btn-primary" onclick="saveStagedPhotos()">
+              <span class="material-symbols-outlined" style="font-size:1rem;">save</span>Save All Staged
+            </button>
+          </div>
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-dim);" id="staged-count"></div>
+      </div>
+    </div>
+
+    <!-- LOGO & BRANDING -->
+    <div class="page" id="page-logo">
+      <div class="page-header">
+        <h1 class="page-title">Logo & Branding</h1>
+        <div class="page-sub">Upload your studio logo — it will appear on the website</div>
+      </div>
+      <div class="card" style="max-width:480px;">
+        <div style="font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;">Studio Logo</div>
+        <div class="logo-preview" id="logo-preview">
+          <div id="logo-preview-fallback" style="font-family:'Noto Serif',serif;font-style:italic;font-size:2rem;color:var(--red);">SR</div>
+          <img id="logo-preview-img" style="display:none;width:100%;height:100%;object-fit:cover;" alt="Logo"/>
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button class="btn-primary" onclick="document.getElementById('logo-file').click()">
+            <span class="material-symbols-outlined" style="font-size:1rem;">upload</span>Upload Logo
+          </button>
+          <button class="btn-secondary" onclick="removeLogo()">
+            <span class="material-symbols-outlined" style="font-size:1rem;">delete</span>Remove
+          </button>
+        </div>
+        <input type="file" id="logo-file" accept="image/*" style="display:none" onchange="uploadLogo(this)"/>
+        <div style="margin-top:1rem;font-size:0.75rem;color:var(--text-dim);">Recommended: Square image, minimum 400×400px. PNG or JPG.</div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <h1 class="page-title">Settings</h1>
+        <div class="page-sub">Manage admin credentials and site settings</div>
+      </div>
+      <div class="card" style="max-width:480px;margin-bottom:1.5rem;">
+        <div style="font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;">Change Password</div>
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input type="password" class="form-input" id="old-pass" placeholder="Current password"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input type="password" class="form-input" id="new-pass" placeholder="New password"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" class="form-input" id="conf-pass" placeholder="Confirm new password"/>
+        </div>
+        <button class="btn-primary" onclick="changePassword()">
+          <span class="material-symbols-outlined" style="font-size:1rem;">lock</span>Update Password
+        </button>
+      </div>
+      <div class="card" style="max-width:480px;">
+        <div style="font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;">Contact Info (Display Only)</div>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <div style="display:flex;gap:12px;align-items:center;background:var(--surface-mid);border-radius:0.75rem;padding:12px 14px;">
+            <span class="material-symbols-outlined" style="color:var(--red);font-size:1.2rem;">phone</span>
+            <span style="font-size:0.85rem;">+94 76 119 4985</span>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;background:var(--surface-mid);border-radius:0.75rem;padding:12px 14px;">
+            <span class="material-symbols-outlined" style="color:var(--red);font-size:1.2rem;">mail</span>
+            <span style="font-size:0.85rem;">srcreationstudiojaffna@gmail.com</span>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;background:var(--surface-mid);border-radius:0.75rem;padding:12px 14px;">
+            <span class="material-symbols-outlined" style="color:var(--red);font-size:1.2rem;">location_on</span>
+            <span style="font-size:0.85rem;">Puttur Road, Jaffna, Sri Lanka, 40000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+/* ─── AUTH ─── */
+const ADMIN_CREDS_KEY = 'sr_admin_creds';
+function getCreds() {
+  const c = localStorage.getItem(ADMIN_CREDS_KEY);
+  return c ? JSON.parse(c) : { user:'admin', pass:'srcstudio2024' };
+}
+function doLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const creds = getCreds();
+  if (u === creds.user && p === creds.pass) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderDashboard();
+    renderPhotoGrid();
+    loadLogoPreview();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+    setTimeout(() => document.getElementById('login-error').style.display = 'none', 2000);
+  }
+}
+function logout() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+function changePassword() {
+  const creds = getCreds();
+  const o = document.getElementById('old-pass').value;
+  const n = document.getElementById('new-pass').value;
+  const c = document.getElementById('conf-pass').value;
+  if (o !== creds.pass) { toast('Current password is wrong','error'); return; }
+  if (n.length < 6) { toast('New password must be 6+ characters','error'); return; }
+  if (n !== c) { toast('Passwords do not match','error'); return; }
+  localStorage.setItem(ADMIN_CREDS_KEY, JSON.stringify({user:creds.user, pass:n}));
+  ['old-pass','new-pass','conf-pass'].forEach(id => document.getElementById(id).value='');
+  toast('Password updated successfully','success');
+}
+
+/* ─── PHOTOS DATA ─── */
+function getPhotos() { return JSON.parse(localStorage.getItem('sr_photos') || '[]'); }
+function savePhotos(arr) { localStorage.setItem('sr_photos', JSON.stringify(arr)); }
+
+/* ─── TOAST ─── */
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  const icon = type === 'success' ? 'check_circle' : 'error';
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-msg').textContent = msg;
+  el.className = `show ${type}`;
+  setTimeout(() => el.className = '', 3000);
+}
+
+/* ─── PAGE NAV ─── */
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if (el) el.classList.add('active');
+  if (id === 'photos') renderPhotoGrid();
+  if (id === 'dashboard') renderDashboard();
+  document.querySelector('.sidebar').classList.remove('open');
+}
+
+/* ─── DASHBOARD ─── */
+function renderDashboard() {
+  const photos = getPhotos();
+  const cats = ['WEDDING','BIRTHDAY','MODEL','STUDIO','ALBUM','PORTRAIT'];
+  const grid = document.getElementById('stat-grid');
+  const total = photos.length;
+  grid.innerHTML = `
+    <div class="stat-card"><div class="stat-val">${total}</div><div class="stat-label">Total Photos</div></div>
+    ${cats.map(c => `<div class="stat-card"><div class="stat-val">${photos.filter(p=>p.cat===c).length}</div><div class="stat-label">${c}</div></div>`).join('')}
+  `;
+}
+
+/* ─── PHOTO GRID ─── */
+let currentFilter = 'ALL';
+function renderPhotoGrid(filter) {
+  if (filter) currentFilter = filter;
+  const photos = getPhotos();
+  const filtered = currentFilter === 'ALL' ? photos : photos.filter(p => p.cat === currentFilter);
+  const grid = document.getElementById('photo-grid');
+  const label = document.getElementById('photo-count-label');
+  label.textContent = `${filtered.length} photo(s) found`;
+  if (!filtered.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-dim);">No photos yet. <a href="#" onclick="showPage('upload',document.querySelector('.nav-item:nth-child(3)'));return false;" style="color:var(--red);">Upload some →</a></div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map((p, realIdx) => {
+    const allIdx = photos.indexOf(p);
+    return `
+      <div class="photo-item">
+        <img src="${p.url}" alt="${p.label||''}"/>
+        <div class="photo-cat-badge">${p.cat}</div>
+        <div class="overlay">
+          <div style="color:white;font-size:0.8rem;font-weight:600;text-align:center;padding:0 8px;">${p.label||'Untitled'}</div>
+          <button class="delete-btn" onclick="deletePhoto(${allIdx})">
+            <span class="material-symbols-outlined" style="font-size:0.9rem;">delete</span>Delete
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+function filterPhotos(cat, el) {
+  document.querySelectorAll('#photo-filters button').forEach(b => b.className = 'btn-secondary');
+  el.className = 'btn-primary';
+  renderPhotoGrid(cat);
+}
+function deletePhoto(idx) {
+  if (!confirm('Delete this photo from the portfolio?')) return;
+  const arr = getPhotos();
+  arr.splice(idx, 1);
+  savePhotos(arr);
+  renderPhotoGrid();
+  renderDashboard();
+  toast('Photo deleted','success');
+}
+function clearAllPhotos() {
+  if (!confirm('This will delete ALL uploaded photos. Are you sure?')) return;
+  savePhotos([]);
+  renderPhotoGrid();
+  renderDashboard();
+  toast('All photos cleared','success');
+}
+
+/* ─── STAGED UPLOAD (files) ─── */
+let stagedFiles = [];
+function handleFiles(files) {
+  Array.from(files).forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      stagedFiles.push({ dataUrl: e.target.result, name: f.name });
+      renderStaged();
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+function renderStaged() {
+  const list = document.getElementById('staged-list');
+  const bulkCard = document.getElementById('bulk-card');
+  const countEl = document.getElementById('staged-count');
+  countEl.textContent = `${stagedFiles.length} photo(s) staged for upload`;
+  bulkCard.style.display = stagedFiles.length ? 'block' : 'none';
+  list.innerHTML = stagedFiles.map((f,i) => `
+    <div style="display:flex;align-items:center;gap:12px;background:var(--surface-mid);border-radius:0.75rem;padding:10px;">
+      <img src="${f.dataUrl}" style="width:52px;height:52px;object-fit:cover;border-radius:0.5rem;flex-shrink:0;"/>
+      <span style="font-size:0.8rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
+      <button onclick="stagedFiles.splice(${i},1);renderStaged();" style="background:none;border:none;color:var(--text-dim);cursor:pointer;padding:4px;" title="Remove">
+        <span class="material-symbols-outlined" style="font-size:1.1rem;">close</span>
+      </button>
+    </div>
+  `).join('');
+}
+function saveStagedPhotos() {
+  if (!stagedFiles.length) { toast('No staged photos','error'); return; }
+  const cat = document.getElementById('bulk-cat').value;
+  const arr = getPhotos();
+  stagedFiles.forEach(f => {
+    arr.push({ url: f.dataUrl, cat, label: f.name.replace(/\.[^/.]+$/,''), span:'' });
+  });
+  savePhotos(arr);
+  stagedFiles = [];
+  renderStaged();
+  renderDashboard();
+  toast(`${arr.length ? 'Photos saved to ' + cat : 'Saved'}! View in Manage Photos.`,'success');
+}
+
+/* ─── URL UPLOAD ─── */
+function previewUrl() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) { toast('Enter a URL first','error'); return; }
+  const preview = document.getElementById('url-preview');
+  const img = document.getElementById('url-preview-img');
+  img.src = url;
+  img.onload = () => { preview.style.display = 'block'; };
+  img.onerror = () => { toast('Could not load image from URL','error'); preview.style.display='none'; };
+}
+function addByUrl() {
+  const url = document.getElementById('url-input').value.trim();
+  const cat = document.getElementById('url-cat').value;
+  const label = document.getElementById('url-label').value.trim() || 'Untitled';
+  if (!url) { toast('Enter a photo URL','error'); return; }
+  const arr = getPhotos();
+  arr.push({ url, cat, label, span:'' });
+  savePhotos(arr);
+  document.getElementById('url-input').value = '';
+  document.getElementById('url-label').value = '';
+  document.getElementById('url-preview').style.display = 'none';
+  renderDashboard();
+  toast(`Photo added to ${cat}!`,'success');
+}
+
+/* ─── LOGO ─── */
+function uploadLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    localStorage.setItem('sr_logo', e.target.result);
+    loadLogoPreview();
+    toast('Logo updated!','success');
+  };
+  reader.readAsDataURL(file);
+}
+function removeLogo() {
+  localStorage.removeItem('sr_logo');
+  loadLogoPreview();
+  toast('Logo removed','success');
+}
+function loadLogoPreview() {
+  const logo = localStorage.getItem('sr_logo');
+  const img = document.getElementById('logo-preview-img');
+  const fallback = document.getElementById('logo-preview-fallback');
+  if (logo) { img.src = logo; img.style.display = 'block'; fallback.style.display='none'; }
+  else { img.style.display = 'none'; fallback.style.display = 'block'; }
+}
+</script>
+</body>
+</html>
