@@ -94,7 +94,7 @@ body{background:var(--surface);color:var(--text);font-family:var(--font-body);fo
 /* ── CONFIRM DIALOG ── */
 #confirm-dialog{position:fixed;inset:0;z-index:800;display:none;align-items:center;justify-content:center;}
 #confirm-dialog.show{display:flex;}
-#confirm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);}
+#confirm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.7);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
 #confirm-box{position:relative;z-index:1;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:14px;padding:2rem;max-width:380px;width:90%;text-align:center;}
 #confirm-box h3{font-family:var(--font-display);font-size:1.3rem;color:var(--text);margin-bottom:0.75rem;}
 #confirm-box p{color:var(--text-muted);font-size:0.875rem;line-height:1.6;margin-bottom:1.5rem;}
@@ -252,7 +252,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
         <h2 id="page-title">Dashboard</h2>
       </div>
       <div style="display:flex;gap:0.75rem;align-items:center;">
-        <a href="index.html" target="_blank" class="btn btn-outline btn-sm"><span class="material-symbols-outlined" style="font-size:0.9rem;">open_in_new</span> View Site</a>
+        <a href="index.html" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm"><span class="material-symbols-outlined" style="font-size:0.9rem;">open_in_new</span> View Site</a>
       </div>
     </header>
 
@@ -445,7 +445,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
 
 <!-- ═══════════ ADD/EDIT ALBUM MODAL ═══════════ -->
 <div id="album-form-modal" style="position:fixed;inset:0;z-index:700;display:none;align-items:center;justify-content:center;">
-  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);" onclick="closeAlbumModal()"></div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);" onclick="closeAlbumModal()"></div>
   <div style="position:relative;z-index:1;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:16px;padding:2rem;max-width:560px;width:90%;max-height:90vh;overflow-y:auto;">
     <button onclick="closeAlbumModal()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.4rem;">✕</button>
     <h3 style="font-family:var(--font-display);font-size:1.5rem;margin-bottom:1.5rem;" id="album-form-title">New Album</h3>
@@ -488,7 +488,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
 
 <!-- ═══════════ ADD/EDIT PACKAGE MODAL ═══════════ -->
 <div id="pkg-form-modal" style="position:fixed;inset:0;z-index:700;display:none;align-items:center;justify-content:center;">
-  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);" onclick="closePkgModal()"></div>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);" onclick="closePkgModal()"></div>
   <div style="position:relative;z-index:1;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:16px;padding:2rem;max-width:560px;width:90%;max-height:90vh;overflow-y:auto;">
     <button onclick="closePkgModal()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.4rem;">✕</button>
     <h3 style="font-family:var(--font-display);font-size:1.5rem;margin-bottom:1.5rem;" id="pkg-form-title">New Package</h3>
@@ -553,13 +553,14 @@ function safeSet(k, v) {
 
 // ── PASTE YOUR FIREBASE CONFIG HERE ────────────────────────────────────────
 window.SR_FIREBASE_CONFIG = window.SR_FIREBASE_CONFIG || {
-  apiKey:            '',   // ← paste your apiKey
-  authDomain:        '',   // ← paste your authDomain
-  databaseURL:       '',   // ← paste your databaseURL  (ends in .firebaseio.com)
-  projectId:         '',   // ← paste your projectId
-  storageBucket:     '',   // ← paste your storageBucket
-  messagingSenderId: '',   // ← paste your messagingSenderId
-  appId:             ''    // ← paste your appId
+  apiKey:            'AIzaSyAgs7fetaSjy5bhtaClcvroQvTBBe5iyMM',
+  authDomain:        'sr-creation-studio-web.firebaseapp.com',
+  databaseURL:       'https://sr-creation-studio-web-default-rtdb.firebaseio.com',
+  projectId:         'sr-creation-studio-web',
+  storageBucket:     'sr-creation-studio-web.firebasestorage.app',
+  messagingSenderId: '1056115151978',
+  appId:             '1:1056115151978:web:5845f9a56a4e37b3bf6613',
+  measurementId:     'G-95G85K4RR3'
 };
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -624,6 +625,8 @@ function applyRemoteData(payload) {
   CLOUD_DATA_KEYS.forEach(k => {
     if (Object.prototype.hasOwnProperty.call(payload, k)) {
       localStorage.setItem(k, JSON.stringify(payload[k]));
+    } else {
+      localStorage.removeItem(k);
     }
   });
   CLOUD_SYNC.applyingRemote = false;
@@ -1311,6 +1314,10 @@ function uploadLogo(e){
 
 function removeLogo(){
   localStorage.removeItem(KEYS.logo);
+  if (CLOUD_SYNC.enabled) {
+    CLOUD_SYNC.db.ref(CLOUD_PATH + '/' + KEYS.logo).remove()
+      .catch(err => console.error('[SR Cloud] Logo remove failed:', err));
+  }
   document.getElementById('logo-preview-img').style.display='none';
   document.getElementById('logo-placeholder-icon').style.display='block';
   toast('Logo removed');
