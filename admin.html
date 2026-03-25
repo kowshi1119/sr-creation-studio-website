@@ -6,6 +6,8 @@
 <title>SR Creation Studio — Admin Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
 <style>
 :root {
   --red:#D72638; --red-dark:#b01f2e; --gold:#e6c364; --gold-dark:#785d00;
@@ -529,7 +531,145 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
 ════════════════════════════════════════════ */
 const KEYS = { creds:'sr_admin_creds', albums:'sr_albums', logo:'sr_logo', pkgs:'sr_packages', pkgCats:'sr_pkg_categories', albumCats:'sr_album_categories' };
 function safeGet(k,fb=null){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}}
-function safeSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){toast('Storage error: '+e.message,'error');return false;}}
+// Keys synced to Firebase — admin credentials are NEVER sent to the cloud
+const CLOUD_DATA_KEYS = ['sr_albums', 'sr_logo', 'sr_packages', 'sr_pkg_categories', 'sr_album_categories'];
+
+function safeSet(k, v) {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+    if (CLOUD_DATA_KEYS.includes(k)) pushCloudData(k, v); // ← mirrors to Firebase (creds excluded)
+    return true;
+  } catch(e) {
+    toast('Storage error: ' + e.message, 'error');
+    return false;
+  }
+}
+
+/* ════════════════════════════════════════════
+   FIREBASE CLOUD SYNC — Admin
+   ▸ Paste your Firebase project config below to
+     activate realtime sync for all site visitors.
+════════════════════════════════════════════ */
+
+// ── PASTE YOUR FIREBASE CONFIG HERE ────────────────────────────────────────
+window.SR_FIREBASE_CONFIG = window.SR_FIREBASE_CONFIG || {
+  apiKey:            '',   // ← paste your apiKey
+  authDomain:        '',   // ← paste your authDomain
+  databaseURL:       '',   // ← paste your databaseURL  (ends in .firebaseio.com)
+  projectId:         '',   // ← paste your projectId
+  storageBucket:     '',   // ← paste your storageBucket
+  messagingSenderId: '',   // ← paste your messagingSenderId
+  appId:             ''    // ← paste your appId
+};
+// ──────────────────────────────────────────────────────────────────────────
+
+// Shared Realtime Database path — must match index.html exactly
+const CLOUD_PATH = 'srStudioSiteData';
+const CLOUD_SYNC = { enabled: false, db: null, applyingRemote: false };
+
+/*
+ * initFirebase()
+ * Initialises the Firebase app once. Returns the database instance,
+ * or null (with a console message) when SDK is missing or config is empty.
+ */
+function initFirebase() {
+  if (typeof firebase === 'undefined') {
+    console.warn('[SR Cloud] Firebase SDK not loaded — cloud sync disabled.');
+    return null;
+  }
+  const cfg = window.SR_FIREBASE_CONFIG || {};
+  if (!(cfg.apiKey && cfg.projectId && cfg.databaseURL)) {
+    console.info('[SR Cloud] Firebase config not filled in — local-only mode.');
+    return null;
+  }
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    return firebase.database();
+  } catch (err) {
+    console.error('[SR Cloud] Firebase init error:', err);
+    return null;
+  }
+}
+
+/*
+ * loadLocalFallback()
+ * Renders admin from localStorage only.
+ * Called automatically when Firebase is not configured or unavailable.
+ */
+function loadLocalFallback() {
+  console.info('[SR Cloud] Admin running in local-only mode (no Firebase).');
+  refreshActiveSection();
+}
+
+/*
+ * pushCloudData(key, value)
+ * Writes one data key to Firebase Realtime Database.
+ * No-ops silently while a remote update is being applied.
+ */
+function pushCloudData(key, value) {
+  if (!CLOUD_SYNC.enabled || CLOUD_SYNC.applyingRemote) return;
+  CLOUD_SYNC.db.ref(CLOUD_PATH + '/' + key).set(value)
+    .then(() => console.debug('[SR Cloud] Pushed:', key))
+    .catch(err => console.error('[SR Cloud] Push failed for "' + key + '":', err));
+}
+
+/*
+ * applyRemoteData(payload)
+ * Writes a Firebase snapshot into localStorage then refreshes admin views.
+ * Only CLOUD_DATA_KEYS are accepted — credentials are never overwritten.
+ */
+function applyRemoteData(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  CLOUD_SYNC.applyingRemote = true;
+  CLOUD_DATA_KEYS.forEach(k => {
+    if (Object.prototype.hasOwnProperty.call(payload, k)) {
+      localStorage.setItem(k, JSON.stringify(payload[k]));
+    }
+  });
+  CLOUD_SYNC.applyingRemote = false;
+  refreshActiveSection();
+}
+
+/*
+ * startCloudSync()
+ * Opens a realtime listener on CLOUD_PATH. On first connect, if Firebase
+ * is empty it seeds the path from current localStorage data.
+ * Falls back gracefully to local-only mode on any failure.
+ */
+function startCloudSync() {
+  const db = initFirebase();
+  if (!db) { loadLocalFallback(); return; }
+  CLOUD_SYNC.db = db;
+  CLOUD_SYNC.enabled = true;
+  let firstLoad = true;
+  db.ref(CLOUD_PATH).on('value', snap => {
+    const payload = snap.val();
+    if (!payload || typeof payload !== 'object') {
+      if (firstLoad) {
+        console.info('[SR Cloud] Firebase empty — seeding from local data.');
+        CLOUD_DATA_KEYS.forEach(k => {
+          const val = safeGet(k, null);
+          if (val !== null) pushCloudData(k, val);
+        });
+      }
+    } else {
+      applyRemoteData(payload);
+    }
+    firstLoad = false;
+  }, err => {
+    console.error('[SR Cloud] Realtime listener error:', err);
+    loadLocalFallback();
+  });
+  console.info('[SR Cloud] Admin realtime sync active → path:', CLOUD_PATH);
+}
+
+function refreshActiveSection() {
+  const active = document.querySelector('.section-page.active');
+  if (!active) { buildDashboard(); return; }
+  const id = active.id.replace('sec-', '');
+  refreshSection(id);
+  if (id !== 'dashboard') buildDashboard();
+}
 
 /* ════════════════════════════════════════════
    AUTH
@@ -608,6 +748,7 @@ function closeSidebar(){ document.getElementById('sidebar').classList.remove('op
 function initApp(){
   // Show mob menu btn on mobile
   if(window.innerWidth<=768) document.getElementById('mob-menu-btn').style.display='block';
+  startCloudSync();   // ← Firebase cloud sync (see FIREBASE CLOUD SYNC section above)
   buildDashboard();
 }
 
@@ -1216,7 +1357,14 @@ function importData(e){
 
 function confirmResetAll(){
   showConfirm('Reset All Data','This will delete all albums, photos, and custom packages. Default seed data will remain.',()=>{
-    [KEYS.albums,KEYS.pkgs,KEYS.pkgCats,KEYS.albumCats,KEYS.logo].forEach(k=>localStorage.removeItem(k));
+    [KEYS.albums, KEYS.pkgs, KEYS.pkgCats, KEYS.albumCats, KEYS.logo].forEach(k => {
+      localStorage.removeItem(k);
+      // Also remove from Firebase so the reset is visible to all visitors
+      if (CLOUD_SYNC.enabled) {
+        CLOUD_SYNC.db.ref(CLOUD_PATH + '/' + k).remove()
+          .catch(err => console.error('[SR Cloud] Reset remove failed for "' + k + '":', err));
+      }
+    });
     toast('Data reset');
     buildDashboard();
   });

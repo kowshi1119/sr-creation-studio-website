@@ -11,6 +11,12 @@
 <meta property="og:image" content="https://res.cloudinary.com/dyt7dheh0/image/upload/f_auto,q_auto/Image_4_qpuqxt"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<!-- Firebase SDK - required for realtime sync -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+<!-- Firebase SDK - required for realtime sync -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
 <style>
 /* ══════════════════════════════════════
    DESIGN SYSTEM
@@ -908,6 +914,92 @@ function safeGet(key, fallback = null) {
 }
 
 /* ════════════════════════════════════════════
+   FIREBASE CLOUD SYNC — Public site
+   ▸ Paste your Firebase project config below to
+     activate realtime sync for all site visitors.
+════════════════════════════════════════════ */
+
+// ── PASTE YOUR FIREBASE CONFIG HERE ────────────────────────────────────────
+window.SR_FIREBASE_CONFIG = window.SR_FIREBASE_CONFIG || {
+  apiKey:            '',   // ← paste your apiKey
+  authDomain:        '',   // ← paste your authDomain
+  databaseURL:       '',   // ← paste your databaseURL  (ends in .firebaseio.com)
+  projectId:         '',   // ← paste your projectId
+  storageBucket:     '',   // ← paste your storageBucket
+  messagingSenderId: '',   // ← paste your messagingSenderId
+  appId:             ''    // ← paste your appId
+};
+// ──────────────────────────────────────────────────────────────────────────
+
+const CLOUD_DATA_KEYS = ['sr_albums', 'sr_logo', 'sr_packages', 'sr_pkg_categories', 'sr_album_categories'];
+const CLOUD_PATH = 'srStudioSiteData';
+const CLOUD_SYNC = { enabled: false, db: null };
+
+function initFirebase() {
+  if (typeof firebase === 'undefined') {
+    console.warn('[SR Cloud] Firebase SDK not loaded — using local data.');
+    return null;
+  }
+  const cfg = window.SR_FIREBASE_CONFIG || {};
+  if (!(cfg.apiKey && cfg.projectId && cfg.databaseURL)) {
+    console.info('[SR Cloud] Firebase config not filled in — local-only mode.');
+    return null;
+  }
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    return firebase.database();
+  } catch (err) {
+    console.error('[SR Cloud] Firebase init error:', err);
+    return null;
+  }
+}
+
+function loadLocalFallback() {
+  console.info('[SR Cloud] Public site running in local-only mode (no Firebase).');
+  refreshPublicDataViews();
+}
+
+function refreshPublicDataViews() {
+  loadLogo();
+  buildPackages();
+  buildPortfolioFilters();
+  buildAlbumsGrid();
+}
+
+function applyRemoteData(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  CLOUD_DATA_KEYS.forEach(k => {
+    if (Object.prototype.hasOwnProperty.call(payload, k)) {
+      localStorage.setItem(k, JSON.stringify(payload[k]));
+    }
+  });
+  refreshPublicDataViews();
+}
+
+// pushCloudData is a no-op on the public page (read-only visitor)
+function pushCloudData() {}
+
+function startCloudSync() {
+  const db = initFirebase();
+  if (!db) { loadLocalFallback(); return; }
+  CLOUD_SYNC.db = db;
+  CLOUD_SYNC.enabled = true;
+  db.ref(CLOUD_PATH).on('value', snap => {
+    const payload = snap.val();
+    if (!payload || typeof payload !== 'object') {
+      console.info('[SR Cloud] Firebase path empty — using local data.');
+      loadLocalFallback();
+      return;
+    }
+    applyRemoteData(payload);
+  }, err => {
+    console.error('[SR Cloud] Realtime listener error:', err);
+    loadLocalFallback();
+  });
+  console.info('[SR Cloud] Public realtime sync active → path:', CLOUD_PATH);
+}
+
+/* ════════════════════════════════════════════
    RENDER — Services
 ════════════════════════════════════════════ */
 function buildServices() {
@@ -1349,6 +1441,7 @@ document.addEventListener('DOMContentLoaded', () => {
   buildServices();
   buildPackages();
   runLoader();
+  startCloudSync();   // ← Firebase cloud sync (see FIREBASE CLOUD SYNC section above)
 });
 </script>
 </body>
