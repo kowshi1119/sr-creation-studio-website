@@ -1,15 +1,15 @@
 # SR Creation Studio Website
 
-A cinematic, single-page portfolio website with a built-in admin portal for managing photos, logo branding, and admin credentials.
+A cinematic, single-page portfolio website with a built-in admin portal for managing photos, logo branding, and access settings.
 
 ## Overview
 
-This project is a static frontend website made of two HTML files:
+This project is a static frontend website made of two HTML files with optional Firebase Realtime Database sync:
 
 - Public site: [index.html](index.html)
 - Admin portal: [admin.html](admin.html)
 
-The public site includes service highlights, portfolio filtering, a booking modal, a WhatsApp CTA, and a branded visual style. The admin portal lets you upload/manage portfolio photos, update the studio logo, and change the admin password.
+The public site includes service highlights, portfolio filtering, a booking modal, a WhatsApp CTA, and a branded visual style. The admin portal lets you upload/manage portfolio photos, update the studio logo, and manage access settings. When Firebase is configured, both pages sync through Realtime Database; when unavailable, the app falls back to localStorage.
 
 ## Key Features
 
@@ -21,16 +21,18 @@ The public site includes service highlights, portfolio filtering, a booking moda
 - Portfolio grid with category filters and lightbox preview
 - WhatsApp and email booking links
 - Dynamic logo loading from admin-managed data
+- Realtime cloud data pull from Firebase (with local fallback)
 
 ### Admin Portal
 
-- Login screen with editable credentials
+- Login screen with configurable credentials
 - Dashboard summary by category
 - Photo management (view, filter, delete, clear all)
 - Photo upload from local files (stored as data URLs)
 - Photo add-by-URL flow with preview
 - Logo upload/remove for public site branding
 - Password change flow
+- Realtime push/sync to Firebase Realtime Database (credentials excluded)
 
 ## Project Structure
 
@@ -43,7 +45,22 @@ The public site includes service highlights, portfolio filtering, a booking moda
 - CSS3 (custom styles)
 - Tailwind CSS (CDN in [index.html](index.html))
 - Vanilla JavaScript (no build step, no framework)
-- Browser localStorage for persistence
+- Firebase Realtime Database (optional cloud sync)
+- Browser localStorage (fallback + local cache)
+
+## Backend / Cloud
+
+This project does not use a custom Node/Express backend. Instead, it uses Firebase Realtime Database as the cloud backend for shared content sync.
+
+- Cloud data path: `srStudioSiteData`
+- Cloud-synced keys: `sr_albums`, `sr_logo`, `sr_packages`, `sr_pkg_categories`, `sr_album_categories`
+- Sensitive key kept local only: `sr_admin_creds`
+
+Behavior summary:
+
+- [admin.html](admin.html) writes changes locally and mirrors cloud-eligible keys to Firebase.
+- [index.html](index.html) reads synced keys from Firebase in realtime (read-only on public side).
+- If Firebase is not configured or unavailable, both pages continue in local-only mode.
 
 ## Run Locally (Windows)
 
@@ -75,31 +92,28 @@ npx serve .
 
 ## Admin Access
 
-Default credentials in the current implementation:
-
-- Username: `admin`
-- Password: `srcstudio2024`
+For security, do not publish or share admin credentials in documentation.
+Set and distribute credentials privately (for example via a password manager or secure team channel).
 
 After login:
 
 1. Open Settings in the sidebar.
 2. Use Change Password to set a strong password.
 
-Security note: This is client-side-only auth stored in browser localStorage. It is suitable for local/small controlled use, not for high-security production use.
+Security note: Authentication is client-side and stored in browser localStorage. This is suitable for local/small controlled use, not for high-security production use.
 
 ## Data Persistence Model
 
-All app data is stored in the browser via localStorage.
+Local browser storage is used as cache/fallback and for local-only auth settings.
 
-- `sr_photos`: Uploaded/admin-added portfolio photos
+- `sr_albums`: Portfolio albums and photo entries
 - `sr_logo`: Uploaded logo image (data URL)
-- `sr_admin_creds`: Admin username/password object
+- `sr_packages`: Admin package overrides and notes
+- `sr_pkg_categories`: Custom package categories
+- `sr_album_categories`: Custom album categories
+- `sr_admin_creds`: Admin username/password object (local-only)
 
-Behavior summary:
-
-- [admin.html](admin.html) writes and manages these values.
-- [index.html](index.html) reads `sr_photos` and `sr_logo` to render dynamic portfolio/logo content.
-- Data is browser-specific. Using another browser or cleared storage will show defaults again.
+Data is browser-specific. Using another browser or cleared storage resets local app data for that browser.
 
 ## Content & Branding Customization
 
@@ -126,7 +140,7 @@ Edit [admin.html](admin.html) to change:
 ### Admin login fails
 
 - Confirm credentials were entered correctly.
-- If credentials were changed and forgotten, clear localStorage for this site and use defaults again.
+- If credentials were changed and forgotten, clear localStorage for this site and reconfigure access privately.
 
 ### Photos or logo not showing on the public site
 
@@ -143,8 +157,11 @@ Edit [admin.html](admin.html) to change:
 In browser DevTools Console on the same origin:
 
 ```javascript
-localStorage.removeItem('sr_photos');
+localStorage.removeItem('sr_albums');
 localStorage.removeItem('sr_logo');
+localStorage.removeItem('sr_packages');
+localStorage.removeItem('sr_pkg_categories');
+localStorage.removeItem('sr_album_categories');
 localStorage.removeItem('sr_admin_creds');
 ```
 
@@ -152,9 +169,9 @@ Then reload [index.html](index.html) and [admin.html](admin.html).
 
 ## Limitations
 
-- No backend/database; everything is browser-local
+- No custom server backend/API layer (uses Firebase client SDK)
 - No multi-user authentication
-- Data is not shared across devices/browsers unless exported manually
+- Full security hardening requires server-side auth and role controls
 
 ## Next Improvements (Optional)
 
