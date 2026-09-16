@@ -1,5 +1,15 @@
 {
   "dependencies": {
     "firebase": "^12.11.0"
+  },
+  "private": true,
+  "scripts": {
+    "test": "node tests/smoke.cjs",
+    "dev": "node scripts/serve.cjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "playwright": "^1.63.0",
+    "prettier": "^3.9.7"
   }
 }

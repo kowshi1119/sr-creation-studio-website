@@ -1,1473 +1,548 @@
-<!DOCTYPE html>
-<html class="dark" lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>SR Creation Studio – Cinematic Photography & Videography, Jaffna</title>
-<meta name="description" content="SR Creation Studio — Premium wedding photography, videography, and portrait sessions in Jaffna, Sri Lanka. Cinematic storytelling for your most precious moments."/>
-<meta property="og:title" content="SR Creation Studio – Cinematic Photography, Jaffna"/>
-<meta property="og:description" content="Premium wedding, puberty ceremony, and portrait photography in Jaffna, Sri Lanka."/>
-<meta property="og:type" content="website"/>
-<meta property="og:image" content="https://res.cloudinary.com/dyt7dheh0/image/upload/f_auto,q_auto/Image_4_qpuqxt"/>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
-<style>
-/* ══════════════════════════════════════
-   DESIGN SYSTEM
-══════════════════════════════════════ */
-:root {
-  --red: #D72638;
-  --red-glow: rgba(215,38,56,0.35);
-  --red-light: #ffb3b1;
-  --gold: #e6c364;
-  --gold-dark: #785d00;
-  --surface: #111010;
-  --surface-2: #181717;
-  --surface-3: #1e1d1d;
-  --surface-4: #252424;
-  --surface-5: #2e2c2c;
-  --border: rgba(92,64,63,0.5);
-  --border-strong: #5c403f;
-  --text: #e8e5e4;
-  --text-muted: #a89897;
-  --text-gold: #e6c364;
-  --font-display: 'Cormorant Garamond', Georgia, serif;
-  --font-body: 'DM Sans', sans-serif;
-  --wa: #25D366;
-}
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { background: var(--surface); color: var(--text); font-family: var(--font-body); font-size: 16px; line-height: 1.6; overflow-x: hidden; }
-
-/* Material icons */
-.material-symbols-outlined { font-variation-settings: 'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24; vertical-align: middle; }
-
-/* Typography */
-.label { font-family: var(--font-body); font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--gold); display: block; }
-h1,h2,h3,h4,h5 { font-family: var(--font-display); font-weight: 400; line-height: 1.15; }
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--red); border-radius: 3px; }
-
-/* ── LOADING SCREEN ── */
-#loader {
-  position: fixed; inset: 0; z-index: 9999;
-  background: #0a0909;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: opacity 0.7s ease, visibility 0.7s ease;
-}
-#loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-.aperture { width: 80px; height: 80px; position: relative; margin: 0 auto; }
-.blade { position: absolute; width: 50%; height: 50%; background: var(--red); transform-origin: 100% 100%; clip-path: polygon(0 0,100% 0,100% 100%); opacity: 0.9; }
-.blade:nth-child(1){top:0;left:0;transform:rotate(0deg);}
-.blade:nth-child(2){top:0;left:0;transform:rotate(45deg);}
-.blade:nth-child(3){top:0;left:0;transform:rotate(90deg);}
-.blade:nth-child(4){top:0;left:0;transform:rotate(135deg);}
-.blade:nth-child(5){top:0;left:0;transform:rotate(180deg);}
-.blade:nth-child(6){top:0;left:0;transform:rotate(225deg);}
-.blade:nth-child(7){top:0;left:0;transform:rotate(270deg);}
-.blade:nth-child(8){top:0;left:0;transform:rotate(315deg);}
-@keyframes bladeOpen { 0%{clip-path:polygon(50% 50%,50% 50%,50% 50%)}60%{clip-path:polygon(0 0,100% 0,100% 100%)}100%{clip-path:polygon(0 0,100% 0,100% 100%)} }
-@keyframes bladeClose { 0%{clip-path:polygon(0 0,100% 0,100% 100%)}100%{clip-path:polygon(50% 50%,50% 50%,50% 50%)} }
-.blade.open { animation: bladeOpen 0.5s ease forwards; }
-.blade.close { animation: bladeClose 0.3s ease forwards; }
-#flash-overlay { position:fixed;inset:0;z-index:10000;background:white;opacity:0;pointer-events:none;transition:opacity 0.1s; }
-#flash-overlay.flash { opacity:1; }
-.load-bar { width:200px;height:2px;background:#222;border-radius:2px;margin-top:24px;overflow:hidden; }
-.load-progress { height:100%;background:linear-gradient(90deg,var(--red),var(--gold));width:0;transition:width 0.1s linear; }
-.load-text { color:var(--text-muted);font-family:var(--font-body);font-size:11px;letter-spacing:0.3em;text-transform:uppercase;margin-top:12px; }
-
-/* ── NAV ── */
-#navbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 1.5rem 3rem;
-  background: rgba(17,16,16,0.7);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid transparent;
-  transition: padding 0.4s, border-color 0.4s, background 0.4s;
-}
-#navbar.scrolled { padding: 0.85rem 3rem; border-color: var(--border); background: rgba(17,16,16,0.92); }
-.nav-logo { font-family: var(--font-display); font-style: italic; font-size: 1.35rem; color: var(--red); text-decoration: none; letter-spacing: 0.02em; }
-.nav-links { display: flex; gap: 2.5rem; list-style: none; }
-.nav-links a { color: var(--text); font-family: var(--font-body); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; text-decoration: none; transition: color 0.2s; position: relative; }
-.nav-links a::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:1px; background:var(--gold); transform:scaleX(0); transition:transform 0.3s; }
-.nav-links a:hover { color: var(--gold); }
-.nav-links a:hover::after { transform: scaleX(1); }
-#mob-toggle { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:4px; }
-#mob-menu { display:none; position:fixed; inset:0; top:70px; background:rgba(17,16,16,0.98); z-index:99; flex-direction:column; align-items:center; justify-content:center; gap:2rem; }
-#mob-menu.open { display:flex; }
-#mob-menu a { font-family:var(--font-display); font-style:italic; font-size:2.5rem; color:var(--text); text-decoration:none; transition:color 0.2s; }
-#mob-menu a:hover { color: var(--red); }
-@media (max-width:768px) {
-  #navbar { padding: 1rem 1.5rem; }
-  #navbar.scrolled { padding: 0.75rem 1.5rem; }
-  .nav-links { display:none; }
-  #mob-toggle { display:block; }
-}
-
-/* ── SCROLL REVEAL ── */
-.reveal { opacity:0; transform:translateY(36px); transition:opacity 0.8s cubic-bezier(0.22,1,0.36,1), transform 0.8s cubic-bezier(0.22,1,0.36,1); }
-.reveal.visible { opacity:1; transform:translateY(0); }
-
-/* ── WHATSAPP FLOAT ── */
-#wa-float {
-  position:fixed;bottom:100px;right:24px;z-index:490;
-  width:58px;height:58px;border-radius:50%;
-  background:var(--wa);box-shadow:0 4px 24px rgba(37,211,102,0.5);
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;text-decoration:none;
-}
-#wa-float:hover { transform:scale(1.12); box-shadow:0 6px 32px rgba(37,211,102,0.7); }
-
-/* ── SERVICE MODAL ── */
-#service-modal { position:fixed;inset:0;z-index:800;display:none;align-items:center;justify-content:center; }
-#service-modal.active { display:flex; }
-.modal-backdrop { position:absolute;inset:0;background:rgba(0,0,0,0.8);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px); }
-.modal-box { position:relative;z-index:1;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:16px;padding:2.5rem;max-width:480px;width:90%; }
-
-/* ── LIGHTBOX ── */
-#lightbox { position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.95); }
-#lightbox.active { display:flex; }
-#lightbox-img { max-width:92vw;max-height:88vh;object-fit:contain;border-radius:6px; }
-#lb-prev,#lb-next { position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s; font-size:0;border:none;}
-#lb-prev { left:20px; }
-#lb-next { right:20px; }
-#lb-prev:hover,#lb-next:hover { background:rgba(215,38,56,0.6); }
-#lb-close { position:absolute;top:20px;right:20px;background:none;border:none;color:white;font-size:2rem;cursor:pointer;line-height:1; }
-#lb-caption { position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-size:13px;letter-spacing:0.1em;text-align:center; }
-
-/* ── ALBUM MODAL ── */
-#album-modal { position:fixed;inset:0;z-index:850;display:none;flex-direction:column;background:var(--surface);overflow:auto; }
-#album-modal.active { display:flex; }
-.album-modal-header { position:sticky;top:0;background:rgba(17,16,16,0.95);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);padding:1rem 2rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid var(--border);z-index:10; }
-.album-gallery-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px;padding:4px; }
-.album-gallery-grid img { width:100%;aspect-ratio:4/3;object-fit:cover;cursor:pointer;transition:opacity 0.2s; }
-.album-gallery-grid img:hover { opacity:0.85; }
-
-/* ── HERO ── */
-.hero { position:relative;height:100vh;min-height:640px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface); }
-.hero-bg { position:absolute;inset:0;z-index:0; }
-.hero-bg img { width:100%;height:100%;object-fit:cover;opacity:0.5;transform:scale(1.1);will-change:transform; }
-.hero-overlay { position:absolute;inset:0;background:linear-gradient(to bottom, transparent 0%, rgba(17,16,16,0.5) 60%, var(--surface) 100%); }
-.hero-glow { position:absolute;inset:0;background:radial-gradient(circle at center, rgba(215,38,56,0.15) 0%, transparent 70%); }
-.hero-content { position:relative;z-index:10;text-align:center;padding:0 1.5rem;max-width:920px; }
-.hero-logo-ring { width:140px;height:140px;border-radius:50%;border:3px solid var(--red);box-shadow:0 0 60px var(--red-glow);margin:0 auto 2rem;overflow:hidden;position:relative; }
-.hero-logo-ring img { width:100%;height:100%;object-fit:cover; }
-.hero-logo-fallback { width:100%;height:100%;background:linear-gradient(135deg,var(--surface-3),var(--surface-5));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px; }
-.hero-logo-fallback span:first-child { font-family:var(--font-display);font-style:italic;font-size:2rem;color:var(--red);font-weight:600;line-height:1; }
-.hero-logo-fallback span:last-child { font-size:8px;letter-spacing:0.3em;color:var(--gold);text-transform:uppercase; }
-.hero h1 { font-size:clamp(2.8rem,6vw,5.5rem);color:var(--text);margin-bottom:1.5rem;letter-spacing:-0.01em; }
-.hero h1 em { color:var(--red-light);font-style:italic; }
-.hero p { color:var(--text-muted);font-size:1.1rem;max-width:540px;margin:0 auto 2.5rem;line-height:1.85; }
-.btn-primary { display:inline-flex;align-items:center;gap:10px;padding:1rem 2.5rem;background:var(--red);color:white;border:none;border-radius:6px;font-family:var(--font-body);font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:filter 0.2s,transform 0.2s; }
-.btn-primary:hover { filter:brightness(1.15);transform:translateY(-1px); }
-.btn-outline { display:inline-flex;align-items:center;gap:10px;padding:1rem 2.5rem;background:transparent;color:var(--gold);border:2px solid var(--gold);border-radius:6px;font-family:var(--font-body);font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background 0.2s,color 0.2s; }
-.btn-outline:hover { background:var(--gold);color:#2a2200; }
-.hero-cta { display:flex;gap:1.25rem;justify-content:center;flex-wrap:wrap; }
-.scroll-down { position:absolute;bottom:28px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite; color:var(--gold); }
-@keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(8px)} }
-
-/* ── SECTIONS ── */
-section { padding: 6rem 2rem; }
-.section-inner { max-width:1300px;margin:0 auto; }
-.section-header { margin-bottom: 4rem; }
-.section-header.centered { text-align:center; }
-.section-header h2 { font-size:clamp(2.5rem,5vw,4.5rem);color:var(--text);margin-top:0.75rem; }
-
-/* ── SERVICES ── */
-#services { background:var(--surface-2); }
-.services-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem; }
-.service-card { background:var(--surface-3);border:1px solid var(--border);border-radius:14px;padding:2rem;cursor:pointer;transition:border-color 0.3s,transform 0.3s,box-shadow 0.3s;position:relative;overflow:hidden; }
-.service-card::before { content:'';position:absolute;inset:0;background:radial-gradient(circle at top left,rgba(215,38,56,0.08),transparent 70%);opacity:0;transition:opacity 0.3s; }
-.service-card:hover { border-color:var(--red);transform:translateY(-4px);box-shadow:0 16px 48px rgba(0,0,0,0.4); }
-.service-card:hover::before { opacity:1; }
-.service-icon { width:52px;height:52px;background:rgba(215,38,56,0.12);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:1.25rem; }
-.service-icon .material-symbols-outlined { color:var(--red);font-size:1.75rem; }
-.service-card h3 { font-family:var(--font-display);font-size:1.6rem;color:var(--text);margin-bottom:0.75rem; }
-.service-card p { color:var(--text-muted);font-size:0.9rem;line-height:1.75;margin-bottom:1.5rem; }
-.service-link { font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);display:flex;align-items:center;gap:6px;transition:gap 0.2s; }
-.service-card:hover .service-link { gap:10px; }
-
-/* ── PORTFOLIO ── */
-#portfolio { background:var(--surface); }
-.filter-bar { display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;margin-bottom:3rem; }
-.filter-btn { padding:0.5rem 1.5rem;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:var(--font-body);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;border-radius:100px;cursor:pointer;transition:all 0.25s; }
-.filter-btn:hover,.filter-btn.active { background:var(--red);border-color:var(--red);color:white; }
-
-/* Album grid */
-.albums-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem; }
-.album-card { background:var(--surface-3);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.35s,box-shadow 0.35s;border:1px solid var(--border); }
-.album-card:hover { transform:translateY(-6px);box-shadow:0 24px 60px rgba(0,0,0,0.5); }
-.album-thumb { position:relative;aspect-ratio:4/3;overflow:hidden; }
-.album-thumb img { width:100%;height:100%;object-fit:cover;transition:transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94); }
-.album-card:hover .album-thumb img { transform:scale(1.08); }
-.album-thumb-overlay { position:absolute;inset:0;background:linear-gradient(to top, rgba(17,16,16,0.85) 0%, transparent 55%);display:flex;align-items:flex-end;padding:1.25rem; }
-.album-photo-count { display:flex;align-items:center;gap:5px;background:rgba(0,0,0,0.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:white;font-size:12px;padding:4px 10px;border-radius:100px;border:1px solid rgba(255,255,255,0.15); }
-.album-cat-badge { position:absolute;top:12px;left:12px;background:var(--red);color:white;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:4px 10px;border-radius:100px; }
-.album-info { padding:1.25rem 1.5rem; }
-.album-info h3 { font-family:var(--font-display);font-size:1.4rem;color:var(--text);margin-bottom:4px; }
-.album-info .album-meta { display:flex;gap:1rem;font-size:12px;color:var(--text-muted);margin-top:6px; }
-.album-info .album-meta span { display:flex;align-items:center;gap:4px; }
-.album-info .album-meta .material-symbols-outlined { font-size:14px; }
-.album-empty { grid-column:1/-1;text-align:center;padding:4rem;color:var(--text-muted); }
-.album-empty .material-symbols-outlined { font-size:3rem;display:block;margin-bottom:1rem;opacity:0.4; }
-
-/* ── PACKAGES ── */
-#packages { background:var(--surface-2); }
-.pkg-tabs { display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:3rem;border-bottom:1px solid var(--border);padding-bottom:1px; }
-.pkg-tab { padding:0.75rem 1.5rem;background:transparent;color:var(--text-muted);font-family:var(--font-body);font-size:12px;letter-spacing:0.15em;text-transform:uppercase;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:color 0.25s,border-color 0.25s;margin-bottom:-1px; }
-.pkg-tab:hover { color:var(--gold); }
-.pkg-tab.active { color:var(--gold);border-bottom-color:var(--gold); }
-.pkg-panel { display:none; }
-.pkg-panel.active { display:block; }
-
-/* Package cards */
-.pkg-cards { display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.75rem; }
-.pkg-card { background:var(--surface-3);border:1px solid var(--border);border-radius:16px;padding:2rem;position:relative;transition:border-color 0.3s,box-shadow 0.3s; }
-.pkg-card.featured { border-color:var(--gold); }
-.pkg-card:hover { border-color:var(--red);box-shadow:0 20px 50px rgba(0,0,0,0.4); }
-.pkg-badge { position:absolute;top:-12px;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--gold);color:#2a2200;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;padding:4px 14px;border-radius:100px; }
-.pkg-tier { font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px; }
-.pkg-name { font-family:var(--font-display);font-size:1.8rem;color:var(--text);margin-bottom:1rem; }
-.pkg-price { font-family:var(--font-display);font-size:2.2rem;color:var(--red);margin-bottom:1.5rem;letter-spacing:-0.01em; }
-.pkg-price span { font-size:1rem;color:var(--text-muted);font-family:var(--font-body); }
-.pkg-features { list-style:none;display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1.75rem; }
-.pkg-features li { display:flex;align-items:flex-start;gap:10px;font-size:0.875rem;color:var(--text-muted);line-height:1.5; }
-.pkg-features li::before { content:'✓';color:var(--gold);font-weight:700;flex-shrink:0;margin-top:2px; }
-.pkg-notes { background:rgba(230,195,100,0.06);border:1px solid rgba(230,195,100,0.2);border-radius:10px;padding:1rem;margin-top:0;font-size:0.8rem;color:var(--text-muted); }
-.pkg-notes strong { color:var(--gold); }
-
-/* Frame price table */
-.frame-table-wrap { overflow-x:auto;border-radius:12px;border:1px solid var(--border); }
-.frame-table { width:100%;border-collapse:collapse; }
-.frame-table thead th { background:var(--surface-4);color:var(--gold);font-family:var(--font-body);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;padding:1rem 1.25rem;text-align:left;border-bottom:1px solid var(--border); }
-.frame-table tbody tr { transition:background 0.15s; }
-.frame-table tbody tr:hover { background:var(--surface-4); }
-.frame-table tbody tr:nth-child(even) { background:rgba(255,255,255,0.02); }
-.frame-table td { padding:0.75rem 1.25rem;color:var(--text-muted);font-size:0.9rem;border-bottom:1px solid rgba(92,64,63,0.2); }
-.frame-table td:first-child { color:var(--text);font-weight:500; }
-.frame-table td:last-child { color:var(--red);font-weight:600; }
-.pkg-note-bar { background:rgba(215,38,56,0.07);border-left:3px solid var(--red);border-radius:0 10px 10px 0;padding:0.85rem 1.25rem;font-size:0.85rem;color:var(--text-muted);margin-top:1.5rem; }
-.pkg-note-bar strong { color:var(--red-light); }
-
-/* ── ABOUT ── */
-#about { background:var(--surface); }
-.about-grid { display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center; }
-@media (max-width:768px){ .about-grid { grid-template-columns:1fr;gap:3rem; } }
-.about-img-wrap { position:relative; }
-.about-img-wrap img { width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,0.5); }
-.about-corner { position:absolute;width:120px;height:120px; }
-.about-corner.tl { top:-20px;left:-20px;border-left:1px solid var(--gold);border-top:1px solid var(--gold);opacity:0.35; }
-.about-corner.br { bottom:-20px;right:-20px;border-right:1px solid var(--red);border-bottom:1px solid var(--red);opacity:0.35; }
-.stats-row { display:flex;gap:2.5rem;margin-top:2.5rem;padding-top:2.5rem;border-top:1px solid var(--border); }
-.stat-item .stat-num { font-family:var(--font-display);font-size:2.8rem;color:var(--red-light);display:block; }
-.stat-item .stat-label { font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:var(--text-muted); }
-
-/* ── TESTIMONIALS ── */
-#testimonials { background:var(--surface-2); }
-.testimonials-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem; }
-.testimonial-card { background:var(--surface-3);border:1px solid var(--border);border-radius:14px;padding:2rem; }
-.testimonial-card .quote-mark { font-family:var(--font-display);font-size:3rem;color:var(--gold);line-height:0.7;margin-bottom:1rem;display:block; }
-.testimonial-card p { color:var(--text-muted);line-height:1.8;font-style:italic;margin-bottom:1.25rem;font-size:0.925rem; }
-.testimonial-author { display:flex;align-items:center;gap:12px; }
-.author-avatar { width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:1.2rem;color:white;flex-shrink:0; }
-.author-name { font-size:0.875rem;font-weight:600;color:var(--text); }
-.author-event { font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted); }
-
-/* ── CTA SECTION ── */
-.cta-section { background:var(--surface);position:relative;overflow:hidden;text-align:center; }
-.cta-section h2 { font-size:clamp(2.5rem,5vw,4.5rem);margin-bottom:1.25rem; }
-.cta-rings { position:absolute;inset:0;pointer-events:none; }
-.cta-ring { position:absolute;border-radius:50%;border:1px solid; top:50%;left:50%;transform:translate(-50%,-50%); }
-
-/* ── CONTACT ── */
-#contact { background:var(--surface-2); }
-.contact-grid { display:grid;grid-template-columns:1fr 1fr;gap:4rem; }
-@media (max-width:768px){ .contact-grid { grid-template-columns:1fr;gap:2rem; } }
-.contact-item { display:flex;align-items:flex-start;gap:1rem;margin-bottom:2rem; }
-.contact-icon { width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
-.contact-item-label { font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:var(--gold);margin-bottom:4px; }
-.contact-item a,.contact-item-val { color:var(--text);font-size:0.975rem;line-height:1.7;text-decoration:none;transition:color 0.2s; }
-.contact-item a:hover { color:var(--wa); }
-.social-links { display:flex;gap:1rem;margin-top:2.5rem; }
-.social-link { width:44px;height:44px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all 0.2s;text-decoration:none;font-size:0; }
-.social-link .material-symbols-outlined { font-size:1.25rem; }
-.social-link:hover { border-color:var(--red);color:var(--red); }
-.map-wrap { border-radius:14px;overflow:hidden;border:1px solid var(--border);height:320px; }
-.map-wrap iframe { width:100%;height:100%;border:none; }
-
-/* ── FOOTER ── */
-footer { background:var(--surface);border-top:1px solid var(--border);padding:2.5rem;text-align:center; }
-footer p { color:var(--text-muted);font-size:0.8rem;letter-spacing:0.1em; }
-#admin-hint { opacity:0;transition:opacity 0.3s;font-size:10px;color:#5c403f;margin-top:0.5rem; }
-footer:hover #admin-hint { opacity:1; }
-
-/* ── CHATBOT ── */
-#chat-toggle {
-  position:fixed;bottom:28px;right:24px;z-index:490;
-  width:60px;height:60px;border-radius:50%;
-  background:linear-gradient(135deg,#1e1d1d,#2e2c2c);
-  border:2px solid var(--red);
-  box-shadow:0 4px 24px rgba(215,38,56,0.4);
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:transform 0.25s,box-shadow 0.25s;
-  font-size:0;
-}
-#chat-toggle:hover { transform:scale(1.1);box-shadow:0 6px 32px rgba(215,38,56,0.6); }
-#chat-toggle svg { transition:transform 0.25s; }
-#chat-toggle.open svg { transform:rotate(45deg); }
-.chat-bubble-dot { position:absolute;top:6px;right:6px;width:10px;height:10px;background:var(--red);border-radius:50%;animation:pulse-dot 2s infinite; }
-@keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.6} }
-
-#chatbot {
-  position:fixed;bottom:100px;right:24px;z-index:480;
-  width:360px;max-height:560px;
-  background:var(--surface-2);
-  border:1px solid var(--border-strong);
-  border-radius:20px;
-  display:flex;flex-direction:column;
-  box-shadow:0 24px 80px rgba(0,0,0,0.6);
-  transform:translateY(20px) scale(0.95);
-  opacity:0;pointer-events:none;
-  transition:opacity 0.3s,transform 0.3s;
-  overflow:hidden;
-}
-#chatbot.open { transform:translateY(0) scale(1);opacity:1;pointer-events:all; }
-.chat-header { background:var(--surface-3);padding:1rem 1.25rem;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border); }
-.chat-avatar { width:38px;height:38px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
-.chat-avatar svg { width:20px;height:20px; }
-.chat-header-text h4 { font-family:var(--font-display);font-size:1.1rem;color:var(--text); }
-.chat-header-text p { font-size:11px;color:var(--wa); }
-.chat-messages { flex:1;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:0.75rem;max-height:360px; }
-.chat-messages::-webkit-scrollbar { width:3px; }
-.chat-messages::-webkit-scrollbar-thumb { background:var(--border-strong); }
-.chat-msg { max-width:85%;padding:0.7rem 1rem;border-radius:16px;font-size:0.85rem;line-height:1.6; }
-.chat-msg.bot { background:var(--surface-4);color:var(--text);border-radius:4px 16px 16px 16px;align-self:flex-start; }
-.chat-msg.user { background:var(--red);color:white;border-radius:16px 4px 16px 16px;align-self:flex-end; }
-.chat-chips { padding:0.75rem 1.25rem;display:flex;flex-wrap:wrap;gap:0.5rem;border-top:1px solid var(--border); }
-.chat-chip { padding:0.35rem 0.85rem;background:transparent;border:1px solid var(--border-strong);border-radius:100px;color:var(--text-muted);font-size:11px;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s; }
-.chat-chip:hover { border-color:var(--red);color:var(--red-light); }
-.chat-input-row { padding:0.75rem 1rem;display:flex;gap:0.5rem;border-top:1px solid var(--border); }
-.chat-input-row input { flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:100px;padding:0.5rem 1rem;color:var(--text);font-size:0.875rem;outline:none;font-family:var(--font-body); }
-.chat-input-row input::placeholder { color:var(--text-muted); }
-.chat-input-row input:focus { border-color:var(--red); }
-.chat-send { width:36px;height:36px;background:var(--red);border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:filter 0.2s;flex-shrink:0; }
-.chat-send:hover { filter:brightness(1.15); }
-.chat-wa-cta { display:inline-flex;align-items:center;gap:6px;color:var(--wa);font-size:0.8rem;text-decoration:none;margin-top:6px;font-weight:600; }
-.typing-dots { display:flex;gap:4px;align-items:center;padding:4px 0; }
-.typing-dots span { width:7px;height:7px;background:var(--text-muted);border-radius:50%;animation:typing 1.2s infinite; }
-.typing-dots span:nth-child(2){animation-delay:0.2s}
-.typing-dots span:nth-child(3){animation-delay:0.4s}
-@keyframes typing { 0%,80%,100%{opacity:0.3;transform:scale(0.85)}40%{opacity:1;transform:scale(1)} }
-
-@media(max-width:480px){
-  #chatbot { width:calc(100vw - 24px);right:12px; bottom:90px; }
-  #chat-toggle { right:12px; }
-  #wa-float { right:12px; }
-}
-</style>
-</head>
-<body>
-
-<!-- Flash -->
-<div id="flash-overlay"></div>
-
-<!-- ═══════════ LOADER ═══════════ -->
-<div id="loader">
-  <div style="text-align:center">
-    <div class="aperture" id="aperture">
-      <div class="blade" id="b1"></div><div class="blade" id="b2"></div>
-      <div class="blade" id="b3"></div><div class="blade" id="b4"></div>
-      <div class="blade" id="b5"></div><div class="blade" id="b6"></div>
-      <div class="blade" id="b7"></div><div class="blade" id="b8"></div>
-    </div>
-    <div style="font-family:var(--font-display);font-style:italic;font-size:1.5rem;color:var(--red);margin-top:18px;letter-spacing:0.05em;">SR Creation Studio</div>
-    <div class="load-bar"><div class="load-progress" id="load-progress"></div></div>
-    <div class="load-text" id="load-text">Loading your experience…</div>
-  </div>
-</div>
-
-<!-- ═══════════ NAVBAR ═══════════ -->
-<nav id="navbar" role="navigation" aria-label="Main navigation">
-  <a href="#" class="nav-logo" aria-label="SR Creation Studio home">SR Creation Studio</a>
-  <ul class="nav-links">
-    <li><a href="#services">Services</a></li>
-    <li><a href="#portfolio">Portfolio</a></li>
-    <li><a href="#packages">Packages</a></li>
-    <li><a href="#about">About</a></li>
-    <li><a href="#contact">Contact</a></li>
-  </ul>
-  <button id="mob-toggle" aria-label="Toggle menu" onclick="toggleMobMenu()">
-    <span class="material-symbols-outlined">menu</span>
-  </button>
-</nav>
-<div id="mob-menu" role="dialog" aria-label="Mobile navigation">
-  <a href="#services" onclick="closeMobMenu()">Services</a>
-  <a href="#portfolio" onclick="closeMobMenu()">Portfolio</a>
-  <a href="#packages" onclick="closeMobMenu()">Packages</a>
-  <a href="#about" onclick="closeMobMenu()">About</a>
-  <a href="#contact" onclick="closeMobMenu()">Contact</a>
-</div>
-
-<!-- ═══════════ WHATSAPP FLOAT ═══════════ -->
-<a href="https://wa.me/94761194985?text=Hi%20SR%20Creation%20Studio%2C%20I%20would%20like%20to%20book%20a%20session!" target="_blank" rel="noopener noreferrer" id="wa-float" title="Chat on WhatsApp" aria-label="Chat on WhatsApp">
-  <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-    <path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white"/>
-    <path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="#25D366"/>
-  </svg>
-</a>
-
-<!-- ═══════════ SERVICE MODAL ═══════════ -->
-<div id="service-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-  <div class="modal-backdrop" onclick="closeModal()"></div>
-  <div class="modal-box">
-    <button onclick="closeModal()" style="position:absolute;top:1rem;right:1rem;color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:1.5rem;line-height:1;" aria-label="Close modal">✕</button>
-    <span class="label" style="margin-bottom:8px;">Book a Session</span>
-    <h3 id="modal-title" style="font-family:var(--font-display);font-size:1.9rem;color:var(--text);margin-bottom:8px;"></h3>
-    <p id="modal-desc" style="color:var(--text-muted);font-size:0.925rem;line-height:1.75;margin-bottom:1.5rem;"></p>
-    <div style="border-top:1px solid var(--border);padding-top:1.5rem;display:flex;flex-direction:column;gap:0.75rem;">
-      <a id="modal-wa" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary" style="justify-content:center;">
-        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white" fill-opacity="0.3"/><path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="white"/></svg>
-        Book via WhatsApp
-      </a>
-      <a id="modal-email" href="#" style="display:flex;align-items:center;justify-content:center;gap:10px;background:var(--surface-4);border:1px solid var(--border);color:var(--text);padding:1rem 2rem;border-radius:6px;font-family:var(--font-body);font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;text-decoration:none;transition:border-color 0.2s;">
-        <span class="material-symbols-outlined" style="font-size:1.25rem;color:var(--red);">mail</span>
-        Send Email Inquiry
-      </a>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ LIGHTBOX ═══════════ -->
-<div id="lightbox" role="dialog" aria-modal="true" aria-label="Photo lightbox">
-  <button id="lb-close" onclick="closeLightbox()" aria-label="Close lightbox">✕</button>
-  <button id="lb-prev" onclick="lbNav(-1)" aria-label="Previous photo"><span class="material-symbols-outlined" style="color:white;font-size:1.5rem;">chevron_left</span></button>
-  <img id="lightbox-img" src="" alt="Full-size portfolio photo" loading="lazy"/>
-  <button id="lb-next" onclick="lbNav(1)" aria-label="Next photo"><span class="material-symbols-outlined" style="color:white;font-size:1.5rem;">chevron_right</span></button>
-  <div id="lb-caption"></div>
-</div>
-
-<!-- ═══════════ ALBUM MODAL ═══════════ -->
-<div id="album-modal" role="dialog" aria-modal="true" aria-label="Event album">
-  <div class="album-modal-header">
-    <button onclick="closeAlbumModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;letter-spacing:0.1em;font-family:var(--font-body);">
-      <span class="material-symbols-outlined">arrow_back</span> Back
-    </button>
-    <div style="margin-left:0.5rem;">
-      <h3 id="album-modal-title" style="font-family:var(--font-display);font-size:1.6rem;color:var(--text);"></h3>
-      <p id="album-modal-meta" style="font-size:12px;color:var(--text-muted);"></p>
-    </div>
-  </div>
-  <div id="album-modal-desc" style="padding:1rem 2rem;color:var(--text-muted);font-size:0.9rem;border-bottom:1px solid var(--border);"></div>
-  <div id="album-modal-grid" class="album-gallery-grid" style="flex:1;"></div>
-</div>
-
-<!-- ═══════════ CHATBOT ═══════════ -->
-<button id="chat-toggle" onclick="toggleChat()" aria-label="Open chat assistant">
-  <span class="chat-bubble-dot"></span>
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-  </svg>
-</button>
-
-<div id="chatbot" role="dialog" aria-label="SR Creation Studio chat assistant">
-  <div class="chat-header">
-    <div class="chat-avatar" aria-hidden="true">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
-        <circle cx="12" cy="12" r="3"/><path d="M20 7h-3.5L15 5H9L7.5 7H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z"/>
-      </svg>
-    </div>
-    <div class="chat-header-text">
-      <h4>SR Studio Assistant</h4>
-      <p>● Online — Ask me anything</p>
-    </div>
-    <button onclick="toggleChat()" style="margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;line-height:1;" aria-label="Close chat">✕</button>
-  </div>
-  <div class="chat-messages" id="chat-messages"></div>
-  <div class="chat-chips" id="chat-chips"></div>
-  <div class="chat-input-row">
-    <input type="text" id="chat-input" placeholder="Type a question…" aria-label="Chat message" onkeydown="if(event.key==='Enter')sendChat()"/>
-    <button class="chat-send" onclick="sendChat()" aria-label="Send message">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-    </button>
-  </div>
-</div>
-
-<main>
-
-<!-- ═══════════ HERO ═══════════ -->
-<section class="hero" aria-label="Hero">
-  <div class="hero-bg">
-    <img id="hero-bg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEiMyATY72E9acx7UN5bOMZs_0-v3V-bROVcqwUJ_QVy0WFoVh_RYNnDInJaLGQLcbjBMXZF11x0Lne6VVjbmxWHcCoshHudC2vLTWD5Pitk_wJJa-ZQsNgbnLxQ5okiTK5PhJrt_ojobyEt-AZvOay-Ihy4Pp5EcwnChZVQHdZViodJX2yGWf77yU4eiDFdY-JLFZJ5gDL8kdL8Xagbx8Ud264Y1jxVYVFsfCtzdcf1hmClGO9lRt0UQbSk1fJQ7MwtnLQ2rnUHE" alt="" role="presentation" loading="eager"/>
-    <div class="hero-overlay"></div>
-    <div class="hero-glow"></div>
-  </div>
-  <div class="hero-content reveal">
-    <div class="hero-logo-ring" id="hero-logo-ring">
-      <img id="hero-logo-img" src="" alt="SR Creation Studio logo" style="display:none;width:100%;height:100%;object-fit:cover;"/>
-      <div class="hero-logo-fallback" id="hero-logo-fallback">
-        <span>SR</span>
-        <span>Creation Studio</span>
-      </div>
-    </div>
-    <h1>We Don't Just Take Photos —<br/><em>We Craft Memories</em></h1>
-    <p>Cinematic storytelling from Jaffna, Sri Lanka — preserving your most precious moments with artistry and soul.</p>
-    <div class="hero-cta">
-      <button class="btn-primary" onclick="document.getElementById('portfolio').scrollIntoView({behavior:'smooth'})">
-        <span class="material-symbols-outlined">photo_library</span> View Portfolio
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3f0e9" />
+    <title>SR Creation Studio — Stories worth keeping. Jaffna.</title>
+    <meta
+      name="description"
+      content="Wedding photography, cinematic films and heartfelt portraits in Jaffna, Sri Lanka. Explore SR Creation Studio’s work and find your perfect photography package."
+    />
+    <meta
+      property="og:title"
+      content="SR Creation Studio — Stories worth keeping."
+    />
+    <meta
+      property="og:description"
+      content="Thoughtful photography. Cinematic films. Memories that feel like you. Based in Jaffna, Sri Lanka."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://kowshi1119.github.io/sr-creation-studio-website/"
+    />
+    <meta
+      property="og:image"
+      content="https://kowshi1119.github.io/sr-creation-studio-website/assets/photos/wedding-2.webp"
+    />
+    <link
+      rel="canonical"
+      href="https://kowshi1119.github.io/sr-creation-studio-website/"
+    />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;450;500;550;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="preload" href="assets/photos/wedding-2.webp" as="image" />
+    <link rel="stylesheet" href="assets/studio.css" />
+    <script src="assets/portfolio.js" defer></script>
+    <script src="assets/studio.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header" id="site-header">
+      <a class="brand" href="#home" aria-label="SR Creation Studio home"
+        ><span class="brand-mark" id="brand-mark"
+          >SR<span class="brand-star">✳</span></span
+        ><span class="brand-name"
+          >CREATION STUDIO<small>PHOTOGRAPHY & FILMS</small></span
+        ></a
+      >
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <a href="#portfolio">Our work</a><a href="#services">What we do</a
+        ><a href="#about">The studio</a><a href="#packages">Packages</a>
+      </nav>
+      <a class="nav-book" href="#contact"
+        >Let’s create together <span aria-hidden="true">↗</span></a
+      >
+      <button
+        class="menu-toggle"
+        id="menu-toggle"
+        aria-label="Open navigation"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+      >
+        <span></span><span></span>
       </button>
-      <button class="btn-outline" onclick="openModal('Wedding Shoot','Capturing the soul of your union with cinematic elegance and candid emotional depth.','Wedding')">
-        <span class="material-symbols-outlined">calendar_month</span> Book a Session
-      </button>
-    </div>
-  </div>
-  <div class="scroll-down" aria-hidden="true">
-    <span class="material-symbols-outlined" style="font-size:2rem;">expand_more</span>
-  </div>
-</section>
-
-<!-- ═══════════ SERVICES ═══════════ -->
-<section id="services">
-  <div class="section-inner">
-    <div class="section-header reveal" style="display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:flex-end;margin-bottom:4rem;">
-      <div>
-        <span class="label" style="margin-bottom:0.75rem;">Our Expertise</span>
-        <h2>Artistry in Every Frame</h2>
-      </div>
-      <p style="max-width:420px;color:var(--text-muted);line-height:1.8;">Tailored photographic experiences designed for those who value timeless quality and cinematic storytelling.</p>
-    </div>
-    <div class="services-grid" id="services-grid"></div>
-  </div>
-</section>
-
-<!-- ═══════════ PORTFOLIO ═══════════ -->
-<section id="portfolio">
-  <div class="section-inner">
-    <div class="section-header centered reveal">
-      <span class="label">Our Work</span>
-      <h2>The Portfolio</h2>
-    </div>
-    <div class="filter-bar" id="portfolio-filters" role="tablist"></div>
-    <div class="albums-grid" id="albums-grid"></div>
-    <div style="text-align:center;margin-top:3.5rem;">
-      <a href="https://www.facebook.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;color:var(--text);font-size:11px;letter-spacing:0.25em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid var(--border);padding-bottom:8px;transition:border-color 0.2s,color 0.2s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
-        See More on Facebook <span class="material-symbols-outlined">arrow_forward</span>
-      </a>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ PACKAGES ═══════════ -->
-<section id="packages">
-  <div class="section-inner">
-    <div class="section-header centered reveal">
-      <span class="label">Investment</span>
-      <h2>Our Packages</h2>
-      <p style="color:var(--text-muted);max-width:480px;margin:1rem auto 0;line-height:1.8;">Professional, transparent pricing to help you plan your perfect memory.</p>
-    </div>
-    <div class="pkg-tabs" id="pkg-tabs" role="tablist"></div>
-    <div id="pkg-panels"></div>
-  </div>
-</section>
-
-<!-- ═══════════ ABOUT ═══════════ -->
-<section id="about">
-  <div class="section-inner">
-    <div class="about-grid">
-      <div class="about-img-wrap reveal">
-        <div class="about-corner tl"></div>
-        <img src="https://res.cloudinary.com/dyt7dheh0/image/upload/f_auto,q_auto/Image_4_qpuqxt" alt="SR Creation Studio photographer" loading="lazy"/>
-        <div class="about-corner br"></div>
-      </div>
-      <div class="reveal" style="transition-delay:0.15s">
-        <span class="label" style="margin-bottom:0.75rem;">Our Story</span>
-        <h2>The Eye Behind The Lens</h2>
-        <p style="color:var(--text-muted);line-height:1.9;margin-top:1.5rem;">At SR Creation Studio, we believe photography is an act of preservation. Each click is a deliberate choice to save a moment from the passage of time. Founded on the principles of high-end editorial aesthetics and deep emotional connection, we craft imagery that doesn't just look beautiful — it feels alive.</p>
-        <p style="color:var(--text-muted);line-height:1.9;margin-top:1rem;">Based in Jaffna, Sri Lanka, we bring a unique blend of local culture and global aesthetic to every frame. From intimate weddings to grand puberty ceremonies, we are with you every step of the way.</p>
-        <div class="stats-row">
-          <div class="stat-item">
-            <span class="stat-num counter" data-target="15">0</span>
-            <span class="stat-label">Years Experience</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-num counter" data-target="2000">0</span>
-            <span class="stat-label">Happy Clients</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-num counter" data-target="50">0</span>
-            <span class="stat-label">Awards</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ TESTIMONIALS ═══════════ -->
-<section id="testimonials">
-  <div class="section-inner">
-    <div class="section-header centered reveal">
-      <span class="label">Client Stories</span>
-      <h2>What Our Clients Say</h2>
-    </div>
-    <div class="testimonials-grid">
-      <div class="testimonial-card reveal">
-        <span class="quote-mark">❝</span>
-        <p>"SR Creation Studio captured our wedding day beyond our wildest dreams. Every frame tells a story. We cry happy tears every time we look at the album."</p>
-        <div class="testimonial-author">
-          <div class="author-avatar" style="background:var(--red);">P</div>
-          <div><div class="author-name">Priya & Arjun</div><div class="author-event">Wedding — 2024</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card reveal" style="transition-delay:0.1s">
-        <span class="quote-mark">❝</span>
-        <p>"The puberty ceremony coverage was magical! The team made everyone feel so comfortable and the photos are stunning. We've booked them again for our anniversary!"</p>
-        <div class="testimonial-author">
-          <div class="author-avatar" style="background:#785d00;">S</div>
-          <div><div class="author-name">Subashini K.</div><div class="author-event">Puberty Ceremony — 2023</div></div>
-        </div>
-      </div>
-      <div class="testimonial-card reveal" style="transition-delay:0.2s">
-        <span class="quote-mark">❝</span>
-        <p>"My model portfolio transformed completely. The lighting, the direction, the final edits — absolutely world class. My agency was impressed immediately."</p>
-        <div class="testimonial-author">
-          <div class="author-avatar" style="background:#5a5b5b;">N</div>
-          <div><div class="author-name">Nithya R.</div><div class="author-event">Model Shoot — 2024</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ CTA ═══════════ -->
-<section class="cta-section" style="padding:6rem 2rem;position:relative;overflow:hidden;text-align:center;">
-  <div class="cta-rings" aria-hidden="true">
-    <div class="cta-ring" style="width:500px;height:500px;border-color:rgba(230,195,100,0.06);"></div>
-    <div class="cta-ring" style="width:750px;height:750px;border-color:rgba(215,38,56,0.05);"></div>
-    <div class="cta-ring" style="width:1000px;height:1000px;border-color:rgba(230,195,100,0.03);"></div>
-  </div>
-  <div class="section-inner" style="position:relative;z-index:1;">
-    <div class="reveal">
-      <span class="label" style="margin-bottom:1rem;">Ready to Begin?</span>
-      <h2 style="font-size:clamp(2.5rem,5vw,4.5rem);margin-bottom:1.25rem;">Ready to Capture Your Moment?</h2>
-      <p style="color:var(--text-muted);font-size:1.1rem;max-width:480px;margin:0 auto 2.5rem;line-height:1.8;">Spaces are limited for wedding seasons. Secure your date with the masters of visual storytelling.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;">
-        <a href="https://wa.me/94761194985?text=Hi%20SR%20Creation%20Studio%2C%20I%20would%20like%20to%20inquire%20about%20booking%20a%20session!" target="_blank" rel="noopener noreferrer" class="btn-primary">
-          <svg width="18" height="18" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white" fill-opacity="0.3"/><path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="white"/></svg>
-          Inquire via WhatsApp
-        </a>
-        <a href="mailto:srcreationstudiojaffna@gmail.com?subject=Session%20Inquiry&body=Hi%20SR%20Creation%20Studio%2C%0A%0AI%20would%20like%20to%20inquire%20about%20booking%20a%20session.%0A%0AThank%20you!" class="btn-outline">
-          <span class="material-symbols-outlined">mail</span> Email Us
-        </a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ CONTACT ═══════════ -->
-<section id="contact">
-  <div class="section-inner">
-    <div class="section-header centered reveal">
-      <span class="label">Get In Touch</span>
-      <h2>Find Us</h2>
-    </div>
-    <div class="contact-grid">
-      <div class="reveal">
-        <div class="contact-item">
-          <div class="contact-icon" style="background:var(--red);"><span class="material-symbols-outlined" style="color:white;">location_on</span></div>
-          <div>
-            <div class="contact-item-label">Address</div>
-            <div class="contact-item-val">Puttur Road, Jaffna,<br/>Sri Lanka — 40000</div>
-          </div>
-        </div>
-        <div class="contact-item">
-          <div class="contact-icon" style="background:var(--wa);"><span class="material-symbols-outlined" style="color:white;">phone</span></div>
-          <div>
-            <div class="contact-item-label">Phone / WhatsApp</div>
-            <a href="https://wa.me/94761194985" target="_blank" rel="noopener noreferrer" class="contact-item-val">+94 76 119 4985</a>
-          </div>
-        </div>
-        <div class="contact-item">
-          <div class="contact-icon" style="background:var(--red);"><span class="material-symbols-outlined" style="color:white;">mail</span></div>
-          <div>
-            <div class="contact-item-label">Email</div>
-            <a href="mailto:srcreationstudiojaffna@gmail.com" class="contact-item-val">srcreationstudiojaffna@gmail.com</a>
-          </div>
-        </div>
-        <div class="contact-item">
-          <div class="contact-icon" style="background:var(--surface-5);"><span class="material-symbols-outlined" style="color:var(--gold);">schedule</span></div>
-          <div>
-            <div class="contact-item-label">Hours</div>
-            <div class="contact-item-val">Mon – Sat: 9:00 AM – 7:00 PM<br/>Sunday: By appointment</div>
-          </div>
-        </div>
-        <div class="social-links">
-          <a href="https://www.facebook.com/share/15cxYjsQMxj/?mibextid=wwXIfrabel="Facebook" title="Facebook">
-            <span class="material-symbols-outlined">groups</span>
-          </a>
-          <a href="https://www.instagram.com/sr_creation__photography?igsh=ZnI2bzQxMzV1b2M3am" title="Instagram">
-            <span class="material-symbols-outlined">photo_camera</span>
-          </a>
-          <a href="https://wa.me/94761194985" target="_blank" rel="noopener" class="social-link" aria-label="WhatsApp" title="WhatsApp">
-            <span class="material-symbols-outlined">chat</span>
-          </a>
-        </div>
-      </div>
-      <div class="reveal" style="transition-delay:0.15s">
-        <div class="map-wrap">
-          <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63136.04668940376!2d80.00456!3d9.66845!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3afe54a10dce0a89%3A0x3a5cac54b4543d5a!2sJaffna!5e0!3m2!1sen!2slk!4v1609459200000"
-            title="SR Creation Studio location — Jaffna, Sri Lanka"
-            loading="lazy"
-            allowfullscreen
-            referrerpolicy="no-referrer-when-downgrade">
-          </iframe>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-</main>
-
-<!-- ═══════════ FOOTER ═══════════ -->
-<footer>
-  <p style="font-family:var(--font-display);font-style:italic;font-size:1.1rem;color:var(--text);margin-bottom:0.5rem;">SR Creation Studio</p>
-  <p>© 2024 SR Creation Studio. Puttur Road, Jaffna, Sri Lanka. All rights reserved.</p>
-  <p id="admin-hint"><a href="admin.html" style="color:inherit;">Admin Portal</a></p>
-</footer>
-
-<script>
-/* ════════════════════════════════════════════
-   DATA — Services
-════════════════════════════════════════════ */
-const SERVICES = [
-  { icon:'favorite', title:'Wedding Photography', desc:'Cinematic storytelling of your union — from intimate moments to grand celebrations — captured with artistry and soul.' },
-  { icon:'celebration', title:'Puberty Ceremonies', desc:'Beautifully documented milestone celebrations with full-day coverage, drone shots, and traditional elegance.' },
-  { icon:'person', title:'Portrait & Model Shoots', desc:'Editorial-quality portraits for models, professionals, and anyone who wants to look and feel extraordinary.' },
-  { icon:'cake', title:'Birthday & Events', desc:'Every laugh, every hug, every moment — preserved with cinematic clarity and warm storytelling.' },
-  { icon:'video_camera_front', title:'Videography', desc:'Cinematic wedding films and event highlight reels that play like movies you will watch forever.' },
-  { icon:'photo_frame', title:'Framing & Albums', desc:'Premium glass frames and Duro frames in all sizes, plus handcrafted photo albums that last a lifetime.' },
-];
-
-/* ════════════════════════════════════════════
-   DATA — Default Seed Albums
-════════════════════════════════════════════ */
-const DEFAULT_ALBUMS = [
-  {
-    id:'d1', title:"Priya & Arjun's Wedding", slug:'priya-arjun-wedding',
-    category:'WEDDING', eventDate:'2024-03-15', location:'Jaffna, Sri Lanka',
-    shortDescription:'A grand traditional Tamil wedding full of colour, emotion, and cinematic moments.',
-    coverImage:'https://lh3.googleusercontent.com/aida-public/AB6AXuBEiMyATY72E9acx7UN5bOMZs_0-v3V-bROVcqwUJ_QVy0WFoVh_RYNnDInJaLGQLcbjBMXZF11x0Lne6VVjbmxWHcCoshHudC2vLTWD5Pitk_wJJa-ZQsNgbnLxQ5okiTK5PhJrt_ojobyEt-AZvOay-Ihy4Pp5EcwnChZVQHdZViodJX2yGWf77yU4eiDFdY-JLFZJ5gDL8kdL8Xagbx8Ud264Y1jxVYVFsfCtzdcf1hmClGO9lRt0UQbSk1fJQ7MwtnLQ2rnUHE',
-    photoCount:48, featured:true,
-    photos:[]
-  },
-  {
-    id:'d2', title:'Kavitha\'s Puberty Ceremony', slug:'kavitha-puberty',
-    category:'CEREMONY', eventDate:'2024-01-20', location:'Jaffna',
-    shortDescription:'A vibrant and emotional puberty ceremony with full Meganthi and outdoor coverage.',
-    coverImage:'https://lh3.googleusercontent.com/aida-public/AB6AXuBE2dmpYa4WC7-hZ6XRVt-eLbHF4ERPkRr0uXM2A-vHMM0xv5-z_QG0I2KObnT3gkHbCl7eCUdBnJXSFjPR-H0v3XHPcZfJVkpCYf4HNe3SHDuCvFIEPGCiTM-I5FllnYBXm4g8-Z5BhVJhVmumJgCBZmkQNKjnPp7rjPOVJPP7eYc2JR6y6XkJRvtFdGJmSmv_TgK-eMjJGvAaWPLkzA1BpGQX2O0NRPN72PPMx6JNcU-4o9hFGOSbSSm3Ih7EJ7z_gxr2sGI',
-    photoCount:35, featured:false,
-    photos:[]
-  },
-  {
-    id:'d3', title:'Nithya — Model Portfolio', slug:'nithya-model-portfolio',
-    category:'MODEL', eventDate:'2024-02-10', location:'Studio & Outdoor',
-    shortDescription:'Editorial-style model portfolio shoot with studio and outdoor locations.',
-    coverImage:'https://lh3.googleusercontent.com/aida-public/AB6AXuBoqDLvqPB8Q4C-FstKqgXxb8MLp-cEfJdSPl8V8I0N3-c4emj5a1p2KH8X6vTQF8D-bpRt8MioZRIpnJONkH7u7r11JOIVLqVCb5VN7a63mEh0-7J5F3TXQF-oA1Kl-xIlm5MINzWKEz4L5sKAT0Mbi-WiAbg3cbbKQ1TyYkiS8_F4wfhMeSxnJB7PGEfgUAHpQ_X-Bm3TQB-f3RBhBYajvCMH2yIjk_1y4tD6y5TW3YHf5KM-gRXYqG2g57kgHf53xoGPJmVE',
-    photoCount:22, featured:false,
-    photos:[]
-  },
-  {
-    id:'d4', title:'Subashini Birthday Celebration', slug:'subashini-birthday',
-    category:'BIRTHDAY', eventDate:'2023-11-05', location:'Event Hall, Jaffna',
-    shortDescription:'A joyful birthday celebration captured with warmth and cinematic energy.',
-    coverImage:'https://lh3.googleusercontent.com/aida-public/AB6AXuBGXb2mTtqhkF4N_Rlc-1yvvhJKMMxrg0pAfP4w0xzPUVn6Ci98V_gqt5l2ZbJeMnxIlzfzVTq1b64YaVqI1LzHVz9FxNTUjBEp_d1AO0Kbkblqt6-w2PfH1k28Dz5N1i-lkVjXXbV5pXdXJO7_Eewzgx93x0lqY_E35D5WpAqnQyqkExDiAbOSb0ypHHjSYSHFVqeXs1B3TDHjl1C2bPqIjm5sH-EH5nkl74KCwrAI_ZFnN5FJeKc1LZXBtHYEolX6mLm4oZA',
-    photoCount:30, featured:false,
-    photos:[]
-  },
-];
-
-/* ════════════════════════════════════════════
-   DATA — Packages
-════════════════════════════════════════════ */
-const PACKAGE_CATEGORIES = [
-  { id:'wedding', name:'Wedding Packages', slug:'wedding' },
-  { id:'puberty', name:'Puberty Ceremony', slug:'puberty' },
-  { id:'glass',   name:'Glass Frame Prices', slug:'glass' },
-  { id:'duro',    name:'Duro Frame Prices', slug:'duro' },
-];
-
-const PACKAGES = {
-  wedding: {
-    items: [
-      {
-        id:'w1', title:'Package 01', badge:'Silver',
-        priceLKR:'150,000', featured:false,
-        features:['35-sheet album','1 USB','2 photographers','2 videographers','1 frame','One-day function coverage'],
-      },
-      {
-        id:'w2', title:'Package 02', badge:'Gold',
-        priceLKR:'190,000', featured:false,
-        features:['45-sheet album','2 photographers','2 videographers','1 USB','1 frame','Registration coverage – 2 hours'],
-      },
-      {
-        id:'w3', title:'Package 03', badge:'Platinum',
-        priceLKR:'250,000', featured:true,
-        features:['55-sheet album','2 photographers','2 videographers','1 USB','1 frame','Registration coverage – 2 hours','Reception coverage','Outdoor shoot – 1 day','Meganthi / Mehendi coverage','Drone coverage'],
-      },
-      {
-        id:'w4', title:'Package 04', badge:'Platinum Plus',
-        priceLKR:'300,000', featured:false,
-        features:['60-sheet album','2 photographers','3 videographers','2 USBs','1 frame','Registration coverage – 2 hours','Reception coverage','Outdoor shoot – 1 day','Meganthi / Mehendi coverage','Drone coverage','Bride-to-be session'],
-      },
-      {
-        id:'w5', title:'Package 05', badge:'VIP',
-        priceLKR:'400,000', featured:false,
-        features:['75-sheet album','2 photographers','3 videographers','2 USBs','1 frame','Registration coverage – 2 hours','Reception coverage','Outdoor shoot – 1 day','Meganthi / Mehendi coverage','Drone coverage','Bride-to-be session','Mini album'],
-      },
-    ],
-    notes:'<strong>Save the Date:</strong> Free &nbsp;|&nbsp; <strong>Extra sheet charge:</strong> LKR 2,400 per sheet',
-  },
-  puberty: {
-    items: [
-      {
-        id:'p1', title:'Package 01', badge:null,
-        priceLKR:'180,000', featured:false,
-        features:['40-sheet album','1 signature frame','1 USB','Photo and video coverage','One-day function coverage'],
-      },
-      {
-        id:'p2', title:'Package 02', badge:'Popular',
-        priceLKR:'280,000', featured:true,
-        features:['Photo and video coverage','55-sheet album','Meganthi coverage','Cake-cutting coverage','Outdoor shoot – 1 day','USB','Signature frame'],
-      },
-      {
-        id:'p3', title:'Package 03', badge:'Complete',
-        priceLKR:'300,000', featured:false,
-        features:['70-sheet album','Signature frame','USB','Photo and video coverage','Meganthi coverage','Cake-cutting coverage','Outdoor shoot – 2 days'],
-      },
-    ],
-    notes:'<strong>Drone DJI:</strong> Free &nbsp;|&nbsp; <strong>Save the Date:</strong> Free',
-  },
-  glass: {
-    rows: [
-      ['6×4','LKR 800'],['5×7','LKR 1,000'],['6×8','LKR 1,100'],['10×8','LKR 1,500'],
-      ['12×8','LKR 2,100'],['10×12','LKR 2,500'],['10×15','LKR 3,400'],['12×15','LKR 3,500'],
-      ['12×18','LKR 4,500'],['12×24','LKR 5,500'],['12×36','LKR 6,000'],['16×24','LKR 8,000'],
-      ['18×24','LKR 10,000'],['20×24','LKR 14,500'],['24×30','LKR 15,000'],['20×30','LKR 14,000'],
-      ['24×36','LKR 16,000'],
-    ],
-    note:'Prices are for standard glass frames. Custom sizes available on request.',
-  },
-  duro: {
-    rows: [
-      ['6×4','LKR 600'],['5×7','LKR 900'],['6×8','LKR 1,300'],['10×8','LKR 1,400'],
-      ['12×8','LKR 1,700'],['10×12','LKR 2,400'],['10×15','LKR 2,700'],['12×15','LKR 2,800'],
-      ['12×18','LKR 3,000'],['12×24','LKR 3,300'],['12×36','LKR 5,000'],['16×24','LKR 6,500'],
-      ['18×24','LKR 7,000'],['20×24','LKR 7,500'],['24×30','LKR 9,000'],['20×30','LKR 8,500'],
-      ['24×36','LKR 10,000'],
-    ],
-    note:'Duro frames are lightweight and durable. All sizes available in stock.',
-  },
-};
-
-/* ════════════════════════════════════════════
-   DATA — Chatbot Knowledge
-════════════════════════════════════════════ */
-const CHATBOT_KB = {
-  greet: { patterns:['hello','hi','hey','good morning','good afternoon','greetings','sup'], reply:'Hello! 👋 Welcome to SR Creation Studio. I can help you with our packages, frame prices, contact details, and booking. What would you like to know?' },
-  contact: { patterns:['contact','phone','number','call','reach','email','address','location','where are you','find you'], reply:'📍 We are located at Puttur Road, Jaffna, Sri Lanka.\n📞 Phone / WhatsApp: +94 76 119 4985\n📧 Email: srcreationstudiojaffna@gmail.com\n\nYou can reach us any time on WhatsApp for a quick reply!' },
-  hours: { patterns:['hours','open','time','working','when','schedule','available'], reply:'🕘 We are open Monday to Saturday, 9:00 AM – 7:00 PM. On Sundays, appointments are available on request.\n\nFeel free to WhatsApp us anytime — we reply fast!' },
-  whatsapp: { patterns:['whatsapp','wa','chat','message'], reply:'You can reach us directly on WhatsApp at +94 76 119 4985. Tap the link below to start a conversation!' },
-  booking: { patterns:['book','booking','reserve','appointment','schedule','inquire','inquiry','quote'], reply:'To book a session, simply reach out via WhatsApp or email and we will confirm your date. Specify the type of event (wedding, ceremony, portrait, etc.) and your preferred dates.\n\nWhatsApp is the fastest way to book!' },
-  wedding: { patterns:['wedding','wed','marriage','bride','groom','nuptial'], reply:'💍 We offer 5 Wedding Packages:\n• Silver – LKR 150,000\n• Gold – LKR 190,000\n• Platinum – LKR 250,000\n• Platinum Plus – LKR 300,000\n• VIP – LKR 400,000\n\nAll packages include photographers, videographers, albums, and frames. Save the Date is free!\n\nWould you like details on a specific package?' },
-  puberty: { patterns:['puberty','ceremony','puberty ceremony','coming of age'], reply:'🌸 We offer 3 Puberty Ceremony Packages:\n• Package 01 – LKR 180,000\n• Package 02 – LKR 280,000 (Popular)\n• Package 03 – LKR 300,000\n\nDrone DJI coverage and Save the Date are included free!' },
-  glass: { patterns:['glass frame','glass','frame price','print'], reply:'🖼️ Glass Frame Prices (popular sizes):\n• 6×4 — LKR 800\n• 10×8 — LKR 1,500\n• 12×18 — LKR 4,500\n• 16×24 — LKR 8,000\n• 24×36 — LKR 16,000\n\nFull size list available in our Packages section. Contact us for custom sizes!' },
-  duro: { patterns:['duro','duro frame'], reply:'🖼️ Duro Frame Prices (popular sizes):\n• 6×4 — LKR 600\n• 10×8 — LKR 1,400\n• 12×18 — LKR 3,000\n• 16×24 — LKR 6,500\n• 24×36 — LKR 10,000\n\nDuro frames are lightweight and durable. Contact us for all sizes!' },
-  album: { patterns:['album','photo album','sheets','book'], reply:'Our photo albums are handcrafted with premium materials. Albums in wedding packages range from 35 to 75 sheets depending on your package. Extra sheets are available at LKR 2,400 each.' },
-  drone: { patterns:['drone','aerial','dji'], reply:'🚁 Drone (DJI) coverage is included FREE with all Puberty Ceremony packages. For Wedding packages, Platinum and above include drone coverage.' },
-  price: { patterns:['price','cost','how much','rate','fee','lkr','charges'], reply:'Our packages start at:\n• Wedding: from LKR 150,000\n• Puberty Ceremony: from LKR 180,000\n• Glass Frames: from LKR 800\n• Duro Frames: from LKR 600\n\nCheck our full Packages section for details, or ask me about a specific package!' },
-  default: { reply:'I\'m not sure about that specific question. Please contact SR Creation Studio directly for the most accurate and up-to-date information.' },
-};
-
-const CHAT_CHIPS = ['Wedding Packages','Puberty Package','Frame Prices','Contact','Book Now','Hours'];
-
-/* ════════════════════════════════════════════
-   STORAGE HELPERS
-════════════════════════════════════════════ */
-function safeGet(key, fallback = null) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-  catch { return fallback; }
-}
-
-/* ════════════════════════════════════════════
-   FIREBASE CLOUD SYNC — Public site
-   ▸ Paste your Firebase project config below to
-     activate realtime sync for all site visitors.
-════════════════════════════════════════════ */
-
-// ── PASTE YOUR FIREBASE CONFIG HERE ────────────────────────────────────────
-window.SR_FIREBASE_CONFIG = window.SR_FIREBASE_CONFIG || {
-  apiKey:            'AIzaSyAgs7fetaSjy5bhtaClcvroQvTBBe5iyMM',
-  authDomain:        'sr-creation-studio-web.firebaseapp.com',
-  databaseURL:       'https://sr-creation-studio-web-default-rtdb.firebaseio.com',
-  projectId:         'sr-creation-studio-web',
-  storageBucket:     'sr-creation-studio-web.firebasestorage.app',
-  messagingSenderId: '1056115151978',
-  appId:             '1:1056115151978:web:5845f9a56a4e37b3bf6613',
-  measurementId:     'G-95G85K4RR3'
-};
-// ──────────────────────────────────────────────────────────────────────────
-
-// Keys pulled from Firebase — credentials are never stored here
-const CLOUD_DATA_KEYS = ['sr_albums', 'sr_logo', 'sr_packages', 'sr_pkg_categories', 'sr_album_categories'];
-// Shared Realtime Database path — must match admin.html exactly
-const CLOUD_PATH = 'srStudioSiteData';
-const CLOUD_SYNC = { enabled: false, db: null };
-
-/*
- * initFirebase()
- * Initialises Firebase app once. Returns the database instance,
- * or null (with a console message) when SDK is missing or config empty.
- */
-function initFirebase() {
-  if (typeof firebase === 'undefined') {
-    console.warn('[SR Cloud] Firebase SDK not loaded — using local data.');
-    return null;
-  }
-  const cfg = window.SR_FIREBASE_CONFIG || {};
-  if (!(cfg.apiKey && cfg.projectId && cfg.databaseURL)) {
-    console.info('[SR Cloud] Firebase config not filled in — local-only mode.');
-    return null;
-  }
-  try {
-    if (!firebase.apps.length) firebase.initializeApp(cfg);
-    return firebase.database();
-  } catch (err) {
-    console.error('[SR Cloud] Firebase init error:', err);
-    return null;
-  }
-}
-
-/*
- * loadLocalFallback()
- * Renders the public site using localStorage only.
- * Called automatically when Firebase is not configured or unavailable.
- */
-function loadLocalFallback() {
-  console.info('[SR Cloud] Public site running in local-only mode (no Firebase).');
-  refreshPublicDataViews();
-}
-
-/*
- * refreshPublicDataViews()
- * Re-renders all dynamic public sections from current localStorage state.
- */
-function refreshPublicDataViews() {
-  loadLogo();
-  buildPackages();
-  buildPortfolioFilters();
-  buildAlbumsGrid();
-}
-
-/*
- * applyRemoteData(payload)
- * Writes a Firebase snapshot into localStorage then re-renders public sections.
- * Only CLOUD_DATA_KEYS are accepted.
- */
-function applyRemoteData(payload) {
-  if (!payload || typeof payload !== 'object') return;
-  CLOUD_DATA_KEYS.forEach(k => {
-    if (Object.prototype.hasOwnProperty.call(payload, k)) {
-      localStorage.setItem(k, JSON.stringify(payload[k]));
-    } else {
-      localStorage.removeItem(k);
-    }
-  });
-  refreshPublicDataViews();
-}
-
-// pushCloudData is a no-op on the public page (read-only visitor)
-function pushCloudData() {}
-
-/*
- * startCloudSync()
- * Opens a realtime listener on CLOUD_PATH.
- * Falls back to local data if Firebase is not configured or fails.
- */
-function startCloudSync() {
-  const db = initFirebase();
-  if (!db) { loadLocalFallback(); return; }
-  CLOUD_SYNC.db = db;
-  CLOUD_SYNC.enabled = true;
-  db.ref(CLOUD_PATH).on('value', snap => {
-    const payload = snap.val();
-    if (!payload || typeof payload !== 'object') {
-      console.info('[SR Cloud] Firebase path empty — using local data.');
-      loadLocalFallback();
-      return;
-    }
-    applyRemoteData(payload);
-  }, err => {
-    console.error('[SR Cloud] Realtime listener error:', err);
-    loadLocalFallback();
-  });
-  console.info('[SR Cloud] Public realtime sync active → path:', CLOUD_PATH);
-}
-
-/* ════════════════════════════════════════════
-   RENDER — Services
-════════════════════════════════════════════ */
-function buildServices() {
-  document.getElementById('services-grid').innerHTML = SERVICES.map(s => `
-    <div class="service-card reveal" onclick="openModal('${s.title}','${s.desc}','${s.title}')">
-      <div class="service-icon"><span class="material-symbols-outlined">${s.icon}</span></div>
-      <h3>${s.title}</h3>
-      <p>${s.desc}</p>
-      <div class="service-link">Book Now <span class="material-symbols-outlined" style="font-size:1rem;">arrow_forward</span></div>
-    </div>
-  `).join('');
-}
-
-/* ════════════════════════════════════════════
-   RENDER — Albums
-════════════════════════════════════════════ */
-let currentFilter = 'ALL';
-let lightboxPhotos = [];
-let lightboxIndex = 0;
-
-function getAlbums() {
-  const adminAlbums = safeGet('sr_albums', []);
-  return [...DEFAULT_ALBUMS, ...adminAlbums];
-}
-
-function buildPortfolioFilters() {
-  const cats = ['ALL', ...new Set(getAlbums().map(a => a.category))];
-  document.getElementById('portfolio-filters').innerHTML = cats.map(c => `
-    <button class="filter-btn${c === 'ALL' ? ' active' : ''}" data-cat="${c}" onclick="filterAlbums('${c}')" role="tab" aria-selected="${c==='ALL'}">${c}</button>
-  `).join('');
-}
-
-function filterAlbums(cat) {
-  currentFilter = cat;
-  document.querySelectorAll('.filter-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.cat === cat);
-    b.setAttribute('aria-selected', b.dataset.cat === cat);
-  });
-  buildAlbumsGrid();
-}
-
-function buildAlbumsGrid() {
-  const albums = getAlbums().filter(a => currentFilter === 'ALL' || a.category === currentFilter);
-  const grid = document.getElementById('albums-grid');
-  if (!albums.length) {
-    grid.innerHTML = `<div class="album-empty"><span class="material-symbols-outlined">photo_library</span>No albums in this category yet.<br/><a href="admin.html" style="color:var(--red);margin-top:0.5rem;display:inline-block;">Add albums in Admin ›</a></div>`;
-    return;
-  }
-  grid.innerHTML = albums.map(a => `
-    <article class="album-card reveal" onclick="openAlbum('${a.id}')" tabindex="0" role="button" aria-label="Open album: ${a.title}">
-      <div class="album-thumb">
-        <img src="${a.coverImage}" alt="${a.title} cover photo" loading="lazy" onerror="this.style.display='none'"/>
-        <div class="album-cat-badge">${a.category}</div>
-        <div class="album-thumb-overlay">
-          <div class="album-photo-count">
-            <span class="material-symbols-outlined" style="font-size:14px;">photo_library</span>
-            ${a.photoCount} photos
-          </div>
-        </div>
-      </div>
-      <div class="album-info">
-        <h3>${a.title}</h3>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:4px;line-height:1.5;">${a.shortDescription||''}</p>
-        <div class="album-meta">
-          ${a.eventDate ? `<span><span class="material-symbols-outlined">calendar_today</span>${new Date(a.eventDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>` : ''}
-          ${a.location ? `<span><span class="material-symbols-outlined">location_on</span>${a.location}</span>` : ''}
-        </div>
-      </div>
-    </article>
-  `).join('');
-  initReveal();
-}
-
-function openAlbum(id) {
-  const albums = getAlbums();
-  const album = albums.find(a => a.id === id);
-  if (!album) return;
-
-  document.getElementById('album-modal-title').textContent = album.title;
-  document.getElementById('album-modal-meta').textContent =
-    [album.category, album.location, album.eventDate ? new Date(album.eventDate).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : ''].filter(Boolean).join(' · ');
-  document.getElementById('album-modal-desc').textContent = album.shortDescription || '';
-
-  // Build photo grid — use album.photos if any, else show placeholder
-  const photos = album.photos && album.photos.length ? album.photos : [album.coverImage];
-  lightboxPhotos = photos.map(p => (typeof p === 'string' ? p : p.imageUrl));
-  document.getElementById('album-modal-grid').innerHTML = photos.map((p, i) => {
-    const url = typeof p === 'string' ? p : p.imageUrl;
-    const cap = typeof p === 'object' ? (p.caption || '') : '';
-    return `<img src="${url}" alt="${cap || album.title + ' photo ' + (i+1)}" loading="lazy" onclick="openLightbox(${i}, lightboxPhotos)" onerror="this.style.display='none'"/>`;
-  }).join('');
-
-  document.getElementById('album-modal').classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeAlbumModal() {
-  document.getElementById('album-modal').classList.remove('active');
-  document.body.style.overflow = '';
-}
-
-/* ════════════════════════════════════════════
-   LIGHTBOX
-════════════════════════════════════════════ */
-function openLightbox(index, photos) {
-  lightboxPhotos = photos || lightboxPhotos;
-  lightboxIndex = index;
-  updateLightbox();
-  document.getElementById('lightbox').classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
-
-function updateLightbox() {
-  const url = typeof lightboxPhotos[lightboxIndex] === 'string' ? lightboxPhotos[lightboxIndex] : lightboxPhotos[lightboxIndex]?.imageUrl;
-  document.getElementById('lightbox-img').src = url || '';
-  document.getElementById('lb-caption').textContent = `${lightboxIndex + 1} / ${lightboxPhotos.length}`;
-}
-
-function lbNav(dir) {
-  lightboxIndex = (lightboxIndex + dir + lightboxPhotos.length) % lightboxPhotos.length;
-  updateLightbox();
-}
-
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('active');
-  document.body.style.overflow = '';
-}
-
-document.getElementById('lightbox').addEventListener('click', e => { if (e.target === e.currentTarget) closeLightbox(); });
-document.addEventListener('keydown', e => {
-  if (document.getElementById('lightbox').classList.contains('active')) {
-    if (e.key === 'ArrowLeft') lbNav(-1);
-    if (e.key === 'ArrowRight') lbNav(1);
-    if (e.key === 'Escape') closeLightbox();
-  }
-  if (document.getElementById('album-modal').classList.contains('active') && e.key === 'Escape') closeAlbumModal();
-});
-
-/* ════════════════════════════════════════════
-   RENDER — Packages
-════════════════════════════════════════════ */
-function buildPackages() {
-  const adminCats = safeGet('sr_pkg_categories', []);
-  const allCats = [...PACKAGE_CATEGORIES, ...adminCats];
-
-  const tabsEl = document.getElementById('pkg-tabs');
-  const panelsEl = document.getElementById('pkg-panels');
-
-  tabsEl.innerHTML = allCats.map((cat, i) => `
-    <button class="pkg-tab${i===0?' active':''}" data-tab="${cat.id}" onclick="switchPkgTab('${cat.id}')" role="tab" aria-selected="${i===0}">${cat.name}</button>
-  `).join('');
-
-  panelsEl.innerHTML = allCats.map((cat, i) => `
-    <div class="pkg-panel${i===0?' active':''}" id="pkg-panel-${cat.id}" role="tabpanel">
-      ${renderPkgPanel(cat)}
-    </div>
-  `).join('');
-}
-
-function renderPkgPanel(cat) {
-  // Check admin packages first
-  const adminPkgs = safeGet('sr_packages', {});
-  const data = adminPkgs[cat.id] || PACKAGES[cat.id];
-  if (!data) return `<p style="color:var(--text-muted);text-align:center;padding:3rem;">No packages configured yet.</p>`;
-
-  if (data.items) {
-    // Card layout
-    return `
-      <div class="pkg-cards">
-        ${data.items.map(pkg => `
-          <div class="pkg-card${pkg.featured?' featured':''}">
-            ${pkg.badge ? `<div class="pkg-badge">${pkg.badge}</div>` : ''}
-            <div class="pkg-tier">${cat.name}</div>
-            <div class="pkg-name">${pkg.title}</div>
-            <div class="pkg-price">LKR ${pkg.priceLKR}</div>
-            <ul class="pkg-features">
-              ${pkg.features.map(f => `<li>${f}</li>`).join('')}
-            </ul>
-            <button class="btn-primary" style="width:100%;justify-content:center;font-size:10px;" onclick="openModal('${pkg.title} — ${cat.name}','Starting at LKR ${pkg.priceLKR}. Contact us to customise this package for your special day.','${cat.id}')">
-              Inquire Now
+    </header>
+    <nav
+      class="mobile-menu"
+      id="mobile-menu"
+      aria-label="Mobile navigation"
+      hidden
+    >
+      <a href="#portfolio">Our work <span>01</span></a
+      ><a href="#services">What we do <span>02</span></a
+      ><a href="#about">The studio <span>03</span></a
+      ><a href="#packages">Packages <span>04</span></a
+      ><a href="#contact">Let’s talk <span>05</span></a>
+      <p>JAFFNA, SRI LANKA · PHOTOGRAPHY & FILMS</p>
+    </nav>
+    <main id="main">
+      <section class="hero" id="home" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="status-dot"></span> A CREATIVE STUDIO IN JAFFNA, SRI
+            LANKA
+          </p>
+          <h1 id="hero-title">Some moments<br />deserve <em>forever.</em></h1>
+          <p class="hero-description">
+            The quiet glances. The unfiltered joy. The feeling of being there.
+            We turn your fleeting moments into stories worth keeping.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-dark" href="#portfolio"
+              >Explore our work <span aria-hidden="true">↗</span></a
+            ><button class="text-button" data-inquiry="Your next chapter">
+              Tell us your story <span aria-hidden="true">↗</span>
             </button>
           </div>
-        `).join('')}
+          <div class="hero-signature">
+            <span class="signature-line"></span
+            ><span
+              >Thoughtfully captured.<br /><strong
+                >Beautifully remembered.</strong
+              ></span
+            >
+          </div>
+        </div>
+        <div
+          class="hero-art"
+          id="hero-art"
+          aria-label="A selection of SR Creation Studio wedding and portrait photography"
+        >
+          <div class="orbit orbit-one" aria-hidden="true"></div>
+          <div class="orbit orbit-two" aria-hidden="true"></div>
+          <span class="art-coordinate" aria-hidden="true"
+            >9.6615° N &nbsp; 80.0255° E</span
+          >
+          <div class="photo-stage" id="photo-stage">
+            <figure class="photo-frame frame-back">
+              <img
+                src="assets/photos/graduation-7.webp"
+                width="800"
+                height="1200"
+                alt="Graduation portrait with a joyful smile"
+              />
+              <figcaption>THE LITTLE THINGS. THE BIG FEELINGS.</figcaption>
+            </figure>
+            <figure class="photo-frame frame-main">
+              <img
+                src="assets/photos/wedding-2.webp"
+                width="800"
+                height="1200"
+                alt="Couple in green and gold traditional attire, photographed together outdoors"
+                fetchpriority="high"
+              />
+              <figcaption>
+                <span>KAJENDRAN & THARSIKA</span><span>01 / WEDDING</span>
+              </figcaption>
+            </figure>
+            <figure class="photo-frame frame-front">
+              <img
+                src="assets/photos/wedding-3.webp"
+                width="1200"
+                height="800"
+                alt="A colourful outdoor wedding portrait"
+              />
+              <figcaption>A DAY. A FEELING. A FOREVER.</figcaption>
+            </figure>
+            <div class="art-seal" aria-hidden="true">
+              <span>MADE OF</span><i>love.</i><span>KEPT FOREVER</span>
+            </div>
+          </div>
+          <button
+            class="motion-toggle"
+            id="motion-toggle"
+            aria-pressed="false"
+            aria-label="Pause 3D photo motion"
+          >
+            <span aria-hidden="true">Ⅱ</span> Pause motion
+          </button>
+          <span class="art-note">A little perspective. A lot of feeling.</span>
+        </div>
+        <div class="hero-bottom">
+          <span>WEDDINGS &nbsp; / &nbsp; PORTRAITS &nbsp; / &nbsp; FILMS</span
+          ><a href="#portfolio"
+            >SCROLL TO DISCOVER <span aria-hidden="true">↓</span></a
+          ><span class="hero-bottom-location"
+            >LOCAL ROOTS. TIMELESS STORIES.</span
+          >
+        </div>
+      </section>
+      <div class="discipline-strip" aria-hidden="true">
+        <span>More than a photograph</span><i>✳</i
+        ><span>A feeling, kept forever</span><i>✳</i
+        ><span>Your story, our perspective</span><i>✳</i>
       </div>
-      ${data.notes ? `<div class="pkg-note-bar" style="margin-top:2rem;">${data.notes}</div>` : ''}
-    `;
-  }
 
-  if (data.rows) {
-    // Table layout for frames
-    return `
-      <div class="frame-table-wrap">
-        <table class="frame-table">
-          <thead><tr><th>Size (inches)</th><th>Price</th></tr></thead>
-          <tbody>
-            ${data.rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}
-          </tbody>
-        </table>
+      <section
+        class="section portfolio-section"
+        id="portfolio"
+        aria-labelledby="portfolio-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01 / SELECTED STORIES</p>
+            <h2 id="portfolio-title">
+              Life happens.<br /><em>We keep the feeling.</em>
+            </h2>
+          </div>
+          <p>
+            A few stories close to our hearts.<br />Real people. Unscripted
+            moments. Lasting memories.
+          </p>
+        </div>
+        <div class="portfolio-toolbar">
+          <div
+            id="portfolio-filters"
+            class="filter-bar"
+            role="group"
+            aria-label="Filter albums"
+          ></div>
+          <span
+            class="portfolio-count"
+            id="portfolio-count"
+            aria-live="polite"
+          ></span>
+        </div>
+        <div class="albums-grid" id="albums-grid"></div>
+        <noscript
+          ><p>
+            Explore our photography on
+            <a href="https://www.instagram.com/sr_creation__photography/"
+              >Instagram</a
+            >, or
+            <a href="https://wa.me/94761194985">contact us on WhatsApp</a> for
+            albums and packages.
+          </p></noscript
+        >
+        <a
+          class="underlined-link"
+          href="https://www.instagram.com/sr_creation__photography/"
+          target="_blank"
+          rel="noopener noreferrer"
+          >More moments on Instagram <span aria-hidden="true">↗</span></a
+        >
+      </section>
+
+      <section
+        class="section services-section"
+        id="services"
+        aria-labelledby="services-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">02 / WHAT WE DO</p>
+            <h2 id="services-title">
+              For every chapter.<br /><em>For every you.</em>
+            </h2>
+          </div>
+          <p>
+            From the first conversation to the final frame, a thoughtful
+            creative experience made around you.
+          </p>
+        </div>
+        <div class="services-grid" id="services-grid"></div>
+      </section>
+
+      <section
+        class="section about-section"
+        id="about"
+        aria-labelledby="about-title"
+      >
+        <div class="about-visual">
+          <img
+            src="assets/photos/wedding-1.webp"
+            width="800"
+            height="1200"
+            alt="An intimate moment between a couple, captured outdoors"
+            loading="lazy"
+          /><span class="about-image-label">THE ART OF NOTICING.</span>
+          <div class="about-stamp" aria-hidden="true">
+            SR<span>JAFFNA<br />SRI LANKA</span>
+          </div>
+        </div>
+        <div class="about-copy">
+          <p class="eyebrow">03 / THE PEOPLE BEHIND THE PICTURES</p>
+          <h2 id="about-title">
+            A little artistry.<br />A lot of <em>heart.</em>
+          </h2>
+          <p>
+            We’re SR Creation Studio, a photography and film studio rooted in
+            Jaffna. We believe the most beautiful images begin with something
+            simple: helping you feel like yourself.
+          </p>
+          <p>
+            Our work brings together the richness of local traditions and a
+            contemporary, cinematic eye. We notice the details, follow the
+            emotion, and leave room for the unexpected.
+          </p>
+          <div class="studio-values">
+            <span>01 <strong>People first.</strong></span
+            ><span>02 <strong>Details matter.</strong></span
+            ><span>03 <strong>Stories stay.</strong></span>
+          </div>
+          <a class="underlined-link" href="#contact"
+            >Get to know us <span aria-hidden="true">↗</span></a
+          >
+        </div>
+      </section>
+
+      <section class="section process-section" aria-labelledby="process-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE EXPERIENCE</p>
+            <h2 id="process-title">
+              Good stories begin<br />with <em>a conversation.</em>
+            </h2>
+          </div>
+        </div>
+        <div class="process-grid">
+          <article>
+            <span class="process-number">01</span>
+            <h3>Let’s connect</h3>
+            <p>
+              Tell us about your day, your people, and what matters most. We’ll
+              talk through dates, ideas, and the right package.
+            </p>
+          </article>
+          <article>
+            <span class="process-number">02</span>
+            <h3>Be in the moment</h3>
+            <p>
+              We’ll guide you when you need it and step back when you don’t. You
+              enjoy your story. We’ll take care of the frames.
+            </p>
+          </article>
+          <article>
+            <span class="process-number">03</span>
+            <h3>Keep it forever</h3>
+            <p>
+              Relive the feeling through carefully edited photographs, cinematic
+              films, and albums made to be held.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="section packages-section"
+        id="packages"
+        aria-labelledby="packages-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">04 / THE INVESTMENT</p>
+            <h2 id="packages-title">
+              Your memories.<br /><em>Thoughtfully made.</em>
+            </h2>
+          </div>
+          <p>
+            Clear packages for your special day.<br />Need something a little
+            different? Let’s make it yours.
+          </p>
+        </div>
+        <div
+          class="pkg-tabs"
+          id="pkg-tabs"
+          role="tablist"
+          aria-label="Photography and framing packages"
+        ></div>
+        <div id="pkg-panels"></div>
+        <p class="package-disclaimer">
+          All prices in Sri Lankan rupees. Please confirm availability and final
+          details with the studio.
+        </p>
+      </section>
+
+      <section
+        class="contact-section"
+        id="contact"
+        aria-labelledby="contact-title"
+      >
+        <div class="contact-intro">
+          <p class="eyebrow">05 / LET’S MAKE SOMETHING MEANINGFUL</p>
+          <h2 id="contact-title">
+            Your next chapter<br /><em>starts here.</em
+            ><span aria-hidden="true">↗</span>
+          </h2>
+          <div class="contact-intro-bottom">
+            <p>A date in mind? A story to tell?<br />We’d love to hear it.</p>
+            <a
+              class="button button-light"
+              href="https://wa.me/94761194985?text=Hi%20SR%20Creation%20Studio%2C%20I%27d%20love%20to%20discuss%20a%20session."
+              target="_blank"
+              rel="noopener noreferrer"
+              >Let’s talk on WhatsApp <span aria-hidden="true">↗</span></a
+            >
+          </div>
+        </div>
+        <div class="contact-details">
+          <div>
+            <span class="eyebrow">COME SAY HELLO</span>
+            <p>Puttur Road, Jaffna<br />Sri Lanka — 40000</p>
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=SR+Creation+Studio+Puttur+Road+Jaffna"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Find us on the map ↗</a
+            >
+          </div>
+          <div>
+            <span class="eyebrow">LET’S CONNECT</span
+            ><a class="contact-phone" href="tel:+94761194985">+94 76 119 4985</a
+            ><a href="mailto:srcreationstudiojaffna@gmail.com"
+              >srcreationstudiojaffna@gmail.com</a
+            >
+          </div>
+          <div>
+            <span class="eyebrow">STUDIO HOURS</span>
+            <p>Monday – Saturday · 9 am – 7 pm<br />Sunday · By appointment</p>
+            <a
+              href="https://www.instagram.com/sr_creation__photography/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Instagram ↗</a
+            ><a
+              href="https://www.facebook.com/share/15cxYjsQMxj/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Facebook ↗</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <a class="footer-wordmark" href="#home"
+        >SR CREATION<span>STUDIO</span><i aria-hidden="true">✳</i></a
+      >
+      <div class="footer-bottom">
+        <span>© <span id="year">2026</span> SR Creation Studio</span
+        ><span>MADE WITH HEART. BASED IN JAFFNA.</span
+        ><a href="admin.html">Studio login ↗</a
+        ><a href="#home">Back to top ↑</a>
       </div>
-      ${data.note ? `<div class="pkg-note-bar" style="margin-top:1.5rem;"><strong>Note:</strong> ${data.note}</div>` : ''}
-    `;
-  }
-  return '';
-}
-
-function switchPkgTab(id) {
-  document.querySelectorAll('.pkg-tab').forEach(t => { t.classList.toggle('active', t.dataset.tab === id); t.setAttribute('aria-selected', t.dataset.tab === id); });
-  document.querySelectorAll('.pkg-panel').forEach(p => p.classList.toggle('active', p.id === `pkg-panel-${id}`));
-}
-
-/* ════════════════════════════════════════════
-   MODAL
-════════════════════════════════════════════ */
-function openModal(title, desc) {
-  const waMsg = encodeURIComponent(`Hi SR Creation Studio, I'm interested in: ${title}`);
-  const emailSubj = encodeURIComponent(`${title} – Inquiry`);
-  const emailBody = encodeURIComponent(`Hi SR Creation Studio,\n\nI would like to inquire about: ${title}\n\nPlease share availability and package details.\n\nThank you!`);
-  document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-desc').textContent = desc;
-  document.getElementById('modal-wa').href = `https://wa.me/94761194985?text=${waMsg}`;
-  document.getElementById('modal-email').href = `mailto:srcreationstudiojaffna@gmail.com?subject=${emailSubj}&body=${emailBody}`;
-  document.getElementById('service-modal').classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
-function closeModal() {
-  document.getElementById('service-modal').classList.remove('active');
-  document.body.style.overflow = '';
-}
-document.getElementById('service-modal').addEventListener('click', e => { if (e.target.id === 'service-modal') closeModal(); });
-
-/* ════════════════════════════════════════════
-   CHATBOT
-════════════════════════════════════════════ */
-let chatOpen = false;
-
-function toggleChat() {
-  chatOpen = !chatOpen;
-  const btn = document.getElementById('chat-toggle');
-  const bot = document.getElementById('chatbot');
-  btn.classList.toggle('open', chatOpen);
-  bot.classList.toggle('open', chatOpen);
-  if (chatOpen && document.getElementById('chat-messages').children.length === 0) {
-    initChat();
-  }
-}
-
-function initChat() {
-  const msgs = document.getElementById('chat-messages');
-  msgs.innerHTML = '';
-  botMsg("Hi there! 👋 I'm the SR Studio Assistant. How can I help you today?");
-  renderChips();
-}
-
-function botMsg(text) {
-  const msgs = document.getElementById('chat-messages');
-  // Show typing
-  const typing = document.createElement('div');
-  typing.className = 'chat-msg bot';
-  typing.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
-  msgs.appendChild(typing);
-  msgs.scrollTop = msgs.scrollHeight;
-
-  setTimeout(() => {
-    typing.remove();
-    const msg = document.createElement('div');
-    msg.className = 'chat-msg bot';
-
-    // Check if reply has WhatsApp CTA
-    const needsWA = text.toLowerCase().includes('whatsapp') || text.toLowerCase().includes('contact') || text.toLowerCase().includes('book');
-    let html = text.replace(/\n/g, '<br/>');
-    if (needsWA) {
-      html += `<br/><a href="https://wa.me/94761194985" target="_blank" rel="noopener noreferrer" class="chat-wa-cta">
-        <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.67.71 5.17 1.95 7.33L2 30l6.87-1.8A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="#25D366"/><path d="M22.5 19.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.67-2.09-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.04 1.02-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" fill="white"/></svg>
-        Chat on WhatsApp
-      </a>`;
-    }
-    msg.innerHTML = html;
-    msgs.appendChild(msg);
-    msgs.scrollTop = msgs.scrollHeight;
-  }, 800);
-}
-
-function userMsg(text) {
-  const msgs = document.getElementById('chat-messages');
-  const msg = document.createElement('div');
-  msg.className = 'chat-msg user';
-  msg.textContent = text;
-  msgs.appendChild(msg);
-  msgs.scrollTop = msgs.scrollHeight;
-}
-
-function processQuery(query) {
-  const q = query.toLowerCase().trim();
-  for (const [, entry] of Object.entries(CHATBOT_KB)) {
-    if (entry.patterns && entry.patterns.some(p => q.includes(p))) {
-      return entry.reply;
-    }
-  }
-  return CHATBOT_KB.default.reply + '\n\nPlease contact SR Creation Studio on WhatsApp or phone for the latest details.';
-}
-
-function sendChat() {
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = '';
-  userMsg(text);
-  const reply = processQuery(text);
-  botMsg(reply);
-}
-
-function renderChips() {
-  document.getElementById('chat-chips').innerHTML = CHAT_CHIPS.map(c => `
-    <button class="chat-chip" onclick="chipClick('${c}')">${c}</button>
-  `).join('');
-}
-
-function chipClick(chip) {
-  userMsg(chip);
-  const reply = processQuery(chip);
-  botMsg(reply);
-}
-
-/* ════════════════════════════════════════════
-   LOGO LOADING
-════════════════════════════════════════════ */
-function loadLogo() {
-  const logo = safeGet('sr_logo');
-  if (logo) {
-    document.getElementById('hero-logo-img').src = logo;
-    document.getElementById('hero-logo-img').style.display = 'block';
-    document.getElementById('hero-logo-fallback').style.display = 'none';
-  }
-}
-
-/* ════════════════════════════════════════════
-   SCROLL REVEAL
-════════════════════════════════════════════ */
-const revealObs = new IntersectionObserver((entries) => {
-  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
-}, { threshold: 0.08 });
-function initReveal() { document.querySelectorAll('.reveal:not(.visible)').forEach(el => revealObs.observe(el)); }
-
-/* ════════════════════════════════════════════
-   COUNTER ANIMATION
-════════════════════════════════════════════ */
-function animateCounters() {
-  document.querySelectorAll('.counter').forEach(el => {
-    const target = parseInt(el.dataset.target);
-    const isK = target >= 1000;
-    const display = isK ? Math.round(target / 1000) : target;
-    const suffix = isK ? 'k+' : '+';
-    let current = 0;
-    const step = display / 55;
-    const timer = setInterval(() => {
-      current = Math.min(current + step, display);
-      el.textContent = Math.round(current) + suffix;
-      if (current >= display) clearInterval(timer);
-    }, 20);
-  });
-}
-const counterObs = new IntersectionObserver((entries) => {
-  entries.forEach(e => { if (e.isIntersecting) { animateCounters(); counterObs.disconnect(); } });
-}, { threshold: 0.5 });
-document.querySelectorAll('.counter').forEach(el => counterObs.observe(el));
-
-/* ════════════════════════════════════════════
-   HERO PARALLAX
-════════════════════════════════════════════ */
-let ticking = false;
-window.addEventListener('scroll', () => {
-  if (!ticking) {
-    requestAnimationFrame(() => {
-      const hero = document.getElementById('hero-bg');
-      if (hero) hero.style.transform = `scale(1.1) translateY(${window.scrollY * 0.25}px)`;
-      const nav = document.getElementById('navbar');
-      if (window.scrollY > 60) nav.classList.add('scrolled');
-      else nav.classList.remove('scrolled');
-      ticking = false;
-    });
-    ticking = true;
-  }
-}, { passive: true });
-
-/* ════════════════════════════════════════════
-   MOBILE NAV
-════════════════════════════════════════════ */
-function toggleMobMenu() {
-  const m = document.getElementById('mob-menu');
-  m.classList.toggle('open');
-  document.body.style.overflow = m.classList.contains('open') ? 'hidden' : '';
-}
-function closeMobMenu() {
-  document.getElementById('mob-menu').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-/* ════════════════════════════════════════════
-   LOADER
-════════════════════════════════════════════ */
-function runLoader() {
-  const progress = document.getElementById('load-progress');
-  const blades = document.querySelectorAll('.blade');
-  const loader = document.getElementById('loader');
-  const flash = document.getElementById('flash-overlay');
-  const loadText = document.getElementById('load-text');
-  const messages = ["Loading your experience…", "Preparing the studio…", "Almost ready…"];
-  let msgIdx = 0;
-  let pct = 0;
-  const barInterval = setInterval(() => {
-    pct = Math.min(pct + Math.random() * 8, 95);
-    progress.style.width = pct + '%';
-    if (pct > 40 && msgIdx === 0) { msgIdx = 1; loadText.textContent = messages[1]; }
-    if (pct > 70 && msgIdx === 1) { msgIdx = 2; loadText.textContent = messages[2]; }
-  }, 100);
-  setTimeout(() => { blades.forEach(b => b.classList.add('open')); }, 400);
-  setTimeout(() => {
-    clearInterval(barInterval);
-    progress.style.width = '100%';
-    blades.forEach(b => { b.classList.remove('open'); b.classList.add('close'); });
-    setTimeout(() => {
-      flash.classList.add('flash');
-      setTimeout(() => {
-        flash.classList.remove('flash');
-        loader.classList.add('hidden');
-        initReveal();
-        buildPortfolioFilters();
-        buildAlbumsGrid();
-      }, 120);
-    }, 300);
-  }, 2000);
-}
-
-/* ════════════════════════════════════════════
-   INIT
-════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-  loadLogo();
-  buildServices();
-  buildPackages();
-  runLoader();
-  startCloudSync();   // ← Firebase cloud sync (see FIREBASE CLOUD SYNC section above)
-});
-</script>
-</body>
+    </footer>
+    <button
+      class="chat-toggle"
+      id="chat-toggle"
+      aria-label="Open studio assistant"
+      aria-expanded="false"
+      aria-controls="chatbot"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="22"
+        height="22"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+      >
+        <path
+          d="M20 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"
+        /></svg
+      ><span>Ask the studio</span>
+    </button>
+    <section class="chatbot" id="chatbot" aria-label="Studio assistant" hidden>
+      <header>
+        <div>
+          <strong>SR Studio Assistant</strong
+          ><small>Quick answers, a human touch away.</small>
+        </div>
+        <button
+          class="icon-button"
+          id="chat-close"
+          aria-label="Close studio assistant"
+        >
+          ×
+        </button>
+      </header>
+      <div
+        id="chat-messages"
+        class="chat-messages"
+        role="log"
+        aria-live="polite"
+      ></div>
+      <div id="chat-chips" class="chat-chips"></div>
+      <form id="chat-form">
+        <input
+          id="chat-input"
+          aria-label="Your question"
+          placeholder="Ask about packages, bookings…"
+          maxlength="500"
+          required
+        /><button class="icon-button" aria-label="Send question">↗</button>
+      </form>
+    </section>
+    <dialog
+      class="inquiry-dialog"
+      id="service-modal"
+      aria-labelledby="modal-title"
+    >
+      <button
+        class="dialog-close icon-button"
+        data-close
+        aria-label="Close inquiry"
+      >
+        ×
+      </button>
+      <p class="eyebrow">LET’S CREATE TOGETHER</p>
+      <h2 id="modal-title"></h2>
+      <p id="modal-desc"></p>
+      <a
+        class="button button-dark"
+        id="modal-wa"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Inquire on WhatsApp ↗</a
+      ><a class="button button-outline" id="modal-email">Send an email ↗</a
+      ><small>We’ll confirm availability and the details with you.</small>
+    </dialog>
+    <dialog
+      class="album-dialog"
+      id="album-modal"
+      aria-labelledby="album-modal-title"
+    >
+      <header>
+        <div>
+          <p class="eyebrow" id="album-modal-meta"></p>
+          <h2 id="album-modal-title"></h2>
+        </div>
+        <button class="icon-button" data-close aria-label="Close album">
+          ×
+        </button>
+      </header>
+      <p id="album-modal-desc"></p>
+      <div class="album-gallery-grid" id="album-modal-grid"></div>
+    </dialog>
+    <dialog class="lightbox" id="lightbox" aria-label="Full-size photograph">
+      <button
+        class="icon-button lightbox-close"
+        data-close
+        aria-label="Close photograph"
+      >
+        ×</button
+      ><button
+        class="icon-button lightbox-prev"
+        id="lb-prev"
+        aria-label="Previous photograph"
+      >
+        ←</button
+      ><img id="lightbox-img" alt="" /><button
+        class="icon-button lightbox-next"
+        id="lb-next"
+        aria-label="Next photograph"
+      >
+        →
+      </button>
+      <p id="lb-caption" aria-live="polite"></p>
+    </dialog>
+  </body>
 </html>

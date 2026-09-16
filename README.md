@@ -1,181 +1,72 @@
-# SR Creation Studio Website
+# SR Creation Studio
 
-A cinematic, single-page portfolio website with a built-in admin portal for managing photos, logo branding, and access settings.
+An editorial photography and film website for SR Creation Studio, Jaffna, Sri Lanka. The public site runs on GitHub Pages with plain HTML, CSS and JavaScript; there is no production build step.
 
-## Overview
+## Design and features
 
-This project is a static frontend website made of two HTML files with optional Firebase Realtime Database sync:
+- Responsive ivory and charcoal layout with the studio’s existing photography.
+- Layered CSS 3D photo frames, gentle floating motion, pointer perspective and gallery depth.
+- A motion pause button, reduced-motion support and animation suspension outside the hero.
+- Album category filters, keyboard-accessible galleries and native modal dialogs with focus restoration.
+- Existing wedding, ceremony and framing prices, with WhatsApp and email inquiries.
+- An automated assistant that reads current package overrides.
+- Read-only Firebase content sync with a local cache and bundled portfolio fallback.
+- Contact details, social links, metadata and an SVG favicon.
 
-- Public site: [index.html](index.html)
-- Admin portal: [admin.html](admin.html)
+## Run locally
 
-The public site includes service highlights, portfolio filtering, a booking modal, a WhatsApp CTA, and a branded visual style. The admin portal lets you upload/manage portfolio photos, update the studio logo, and manage access settings. When Firebase is configured, both pages sync through Realtime Database; when unavailable, the app falls back to localStorage.
+With Node.js installed:
 
-## Key Features
-
-### Public Website
-
-- Cinematic loader animation with camera aperture and flash effects
-- Responsive navigation and mobile menu
-- Service cards with booking modal actions
-- Portfolio grid with category filters and lightbox preview
-- WhatsApp and email booking links
-- Dynamic logo loading from admin-managed data
-- Realtime cloud data pull from Firebase (with local fallback)
-
-### Admin Portal
-
-- Login screen with configurable credentials
-- Dashboard summary by category
-- Photo management (view, filter, delete, clear all)
-- Photo upload from local files (stored as data URLs)
-- Photo add-by-URL flow with preview
-- Logo upload/remove for public site branding
-- Password change flow
-- Realtime push/sync to Firebase Realtime Database (credentials excluded)
-
-## Project Structure
-
-- [index.html](index.html): Public-facing website UI, animations, portfolio rendering, and logo loading
-- [admin.html](admin.html): Admin UI, authentication logic, photo/logo management, and settings
-
-## Tech Stack
-
-- HTML5
-- CSS3 (custom styles)
-- Tailwind CSS (CDN in [index.html](index.html))
-- Vanilla JavaScript (no build step, no framework)
-- Firebase Realtime Database (optional cloud sync)
-- Browser localStorage (fallback + local cache)
-
-## Backend / Cloud
-
-This project does not use a custom Node/Express backend. Instead, it uses Firebase Realtime Database as the cloud backend for shared content sync.
-
-- Cloud data path: `srStudioSiteData`
-- Cloud-synced keys: `sr_albums`, `sr_logo`, `sr_packages`, `sr_pkg_categories`, `sr_album_categories`
-- Sensitive key kept local only: `sr_admin_creds`
-
-Behavior summary:
-
-- [admin.html](admin.html) writes changes locally and mirrors cloud-eligible keys to Firebase.
-- [index.html](index.html) reads synced keys from Firebase in realtime (read-only on public side).
-- If Firebase is not configured or unavailable, both pages continue in local-only mode.
-
-## Run Locally (Windows)
-
-No installation is required for basic usage.
-
-### Option 1: Open directly in browser
-
-1. Open [index.html](index.html) in your browser.
-2. Scroll to footer and click Admin Portal, or open [admin.html](admin.html) directly.
-
-### Option 2: Serve with a local static server (recommended)
-
-From the project folder:
-
-```powershell
-python -m http.server 8000
+```sh
+npm run dev
 ```
 
-Then open:
+Open http://127.0.0.1:8000. Use `PORT` to change the port. The preview server binds only to the local machine.
 
-- Public site: http://localhost:8000/index.html
-- Admin portal: http://localhost:8000/admin.html
+## Test
 
-Alternative using Node (if installed):
-
-```powershell
-npx serve .
+```sh
+npm ci
+npx playwright install chromium
+npm test
 ```
 
-## Admin Access
+The tests use installed Chrome or Edge automatically on Windows. Elsewhere they use Playwright Chromium. Set `CHROME_PATH` to select another Chrome executable.
 
-For security, do not publish or share admin credentials in documentation.
-Set and distribute credentials privately (for example via a password manager or secure team channel).
+Browser tests cover five viewport widths, photo loading, filters, keyboard galleries, nested modal behavior and focus, pricing tabs, inquiry links, the assistant, storage failures, data rendering, mobile navigation, 3D motion controls, reduced motion, no-JavaScript fallback and automated WCAG A/AA accessibility checks. Firebase requests are blocked during regression tests so production content is never modified. Set `SCREENSHOT_DIR` to save review screenshots.
 
-After login:
+## Files
 
-1. Open Settings in the sidebar.
-2. Use Change Password to set a strong password.
+- `index.html`: public page structure, metadata and dialogs.
+- `assets/studio.css`: visual design, responsive layouts and CSS 3D motion.
+- `assets/studio.js`: services, default pricing, interaction and read-only Firebase integration.
+- `assets/portfolio.js`: fallback albums extracted from the repository’s existing studio backup.
+- `assets/photos/`: existing studio photographs stored as local WebP assets.
+- `assets/favicon.svg`: studio monogram.
+- `admin.html`: existing administration interface.
+- `scripts/serve.cjs`: local preview server.
+- `tests/smoke.cjs`: browser regression checks.
 
-Security note: Authentication is client-side and stored in browser localStorage. This is suitable for local/small controlled use, not for high-security production use.
+## Content updates
 
-## Data Persistence Model
+Use `admin.html` to manage albums, logo and package overrides. The public site reads the existing Firebase path `srStudioSiteData` and these keys:
 
-Local browser storage is used as cache/fallback and for local-only auth settings.
+`sr_albums`, `sr_logo`, `sr_packages`, `sr_pkg_categories`, `sr_album_categories`.
 
-- `sr_albums`: Portfolio albums and photo entries
-- `sr_logo`: Uploaded logo image (data URL)
-- `sr_packages`: Admin package overrides and notes
-- `sr_pkg_categories`: Custom package categories
-- `sr_album_categories`: Custom album categories
-- `sr_admin_creds`: Admin username/password object (local-only)
+An admin album collection replaces the bundled fallback; an explicitly empty collection stays empty. If no saved collection exists, the bundled real studio albums appear. Remote content still renders when browser storage is unavailable or full.
 
-Data is browser-specific. Using another browser or cleared storage resets local app data for that browser.
+The hero photographs are curated independently in `index.html`. Edit those image paths to change the homepage composition. Change default services and prices in `assets/studio.js`; contact links also appear in `index.html`.
 
-## Content & Branding Customization
+The public page never writes to Firebase. This redesign does not change the existing admin authentication model: the admin’s local credential check is client-side. Firebase rules and authenticated write access must be managed separately in the Firebase project.
 
-### Public Site Changes
+## Deployment
 
-Edit [index.html](index.html) to change:
+Push the site files to the repository’s GitHub Pages publishing branch. Asset paths are relative, so they work at:
 
-- Services list and descriptions (`SERVICES` array)
-- Default portfolio seed (`DEFAULT_PHOTOS` array)
-- Contact links and social links
-- Hero/footer text and visual sections
+https://kowshi1119.github.io/sr-creation-studio-website/
 
-### Admin Behavior Changes
+The website needs no Node.js service in production. NPM dependencies support local testing and the existing project setup; production Firebase SDKs load after the local page has rendered.
 
-Edit [admin.html](admin.html) to change:
+## Photography
 
-- Login and credential rules
-- Categories and dashboard stats
-- Upload/preview/deletion flows
-- Logo handling and settings UI
-
-## Troubleshooting
-
-### Admin login fails
-
-- Confirm credentials were entered correctly.
-- If credentials were changed and forgotten, clear localStorage for this site and reconfigure access privately.
-
-### Photos or logo not showing on the public site
-
-- Make sure you are opening the same origin (same file path or same localhost port) used in admin.
-- Refresh [index.html](index.html) after admin changes.
-
-### URL image preview fails in admin
-
-- The provided URL may be invalid or blocked.
-- Try a direct image URL ending in a valid image resource.
-
-### Need a full reset
-
-In browser DevTools Console on the same origin:
-
-```javascript
-localStorage.removeItem('sr_albums');
-localStorage.removeItem('sr_logo');
-localStorage.removeItem('sr_packages');
-localStorage.removeItem('sr_pkg_categories');
-localStorage.removeItem('sr_album_categories');
-localStorage.removeItem('sr_admin_creds');
-```
-
-Then reload [index.html](index.html) and [admin.html](admin.html).
-
-## Limitations
-
-- No custom server backend/API layer (uses Firebase client SDK)
-- No multi-user authentication
-- Full security hardening requires server-side auth and role controls
-
-## Next Improvements (Optional)
-
-- Add backend storage (database/object storage)
-- Replace localStorage auth with secure server-side auth
-- Add image optimization/compression before save
-- Add export/import tools for admin data backup
+The bundled wedding and graduation photographs come from `sr-studio-backup-2026-03-25.json`, already present in this repository. The redesign uses these existing assets rather than the original sample gallery entries. Original image watermarks remain intact.
