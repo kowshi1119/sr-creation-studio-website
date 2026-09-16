@@ -709,21 +709,20 @@ function renderPackagePanel(panel, category) {
     panel.append(element("p", "pkg-note", plainNote(data.notes || data.note)));
 }
 function loadLogo() {
-  const value = imageURL(safeGet("sr_logo"));
-  const mark = $("#brand-mark");
-  if (value) {
-    const img = element("img");
-    img.src = value;
-    img.alt = "";
-    img.addEventListener(
-      "error",
-      () => {
-        mark.textContent = "SR";
-      },
-      { once: true },
-    );
-    mark.replaceChildren(img);
-  } else mark.innerHTML = 'SR<span class="brand-star">✳</span>';
+  const value = imageURL(safeGet("sr_logo")) || "assets/studio-logo.jpg";
+  const img = element("img");
+  img.src = value;
+  img.alt = "";
+  img.width = 59;
+  img.height = 59;
+  img.addEventListener(
+    "error",
+    () => {
+      img.src = "assets/studio-logo.jpg";
+    },
+    { once: true },
+  );
+  $("#brand-mark").replaceChildren(img);
 }
 function refreshPublicDataViews() {
   loadLogo();

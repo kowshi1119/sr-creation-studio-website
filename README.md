@@ -4,7 +4,9 @@ An editorial photography and film website for SR Creation Studio, Jaffna, Sri La
 
 ## Design and features
 
-- Responsive ivory and charcoal layout with the studio’s existing photography.
+- Responsive red, black, and white branding with the supplied studio logo and existing photography.
+- Light and dark themes, a header toggle, saved visitor preference, and automatic system-theme detection.
+- A 3.5-second CSS 3D camera intro: shutter press, aperture closure, and one brief flash. Skip or press Escape to enter immediately; reduced-motion visitors bypass it.
 - Layered CSS 3D photo frames, gentle floating motion, pointer perspective and gallery depth.
 - A motion pause button, reduced-motion support and animation suspension outside the hero.
 - Album category filters, keyboard-accessible galleries and native modal dialogs with focus restoration.
@@ -39,6 +41,9 @@ Browser tests cover five viewport widths, photo loading, filters, keyboard galle
 
 - `index.html`: public page structure, metadata and dialogs.
 - `assets/studio.css`: visual design, responsive layouts and CSS 3D motion.
+- `assets/brand.css`: logo palette, light/dark theme tokens and camera intro styling.
+- `assets/appearance.js`: early theme initialization, preference storage and timed intro.
+- `assets/studio-logo.jpg`: supplied studio logo, used as the default header mark and intro branding.
 - `assets/studio.js`: services, default pricing, interaction and read-only Firebase integration.
 - `assets/portfolio.js`: fallback albums extracted from the repository’s existing studio backup.
 - `assets/photos/`: existing studio photographs stored as local WebP assets.
@@ -46,6 +51,7 @@ Browser tests cover five viewport widths, photo loading, filters, keyboard galle
 - `admin.html`: existing administration interface.
 - `scripts/serve.cjs`: local preview server.
 - `tests/smoke.cjs`: browser regression checks.
+- `tests/appearance.cjs`: intro timing, skip controls, theme persistence, reduced motion, storage fallback, responsive layouts and contrast in both themes.
 
 ## Content updates
 
@@ -70,3 +76,9 @@ The website needs no Node.js service in production. NPM dependencies support loc
 ## Photography
 
 The bundled wedding and graduation photographs come from `sr-studio-backup-2026-03-25.json`, already present in this repository. The redesign uses these existing assets rather than the original sample gallery entries. Original image watermarks remain intact.
+
+## Intro and theme settings
+
+The intro plays on each full page load and ends after 3.5 seconds, independently of Firebase or image downloads. Its duration is set in `assets/appearance.js` and matching animation timings in `assets/brand.css`. It is not a loading-percentage indicator. No audio autoplays.
+
+The visitor’s theme choice is stored under `sr_theme`; without a saved choice the site follows the operating-system color scheme. Theme initialization runs before stylesheet rendering to avoid displaying the wrong theme first. If JavaScript is disabled, the intro stays closed and the core page remains accessible.

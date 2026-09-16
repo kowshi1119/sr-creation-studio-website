@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f3f0e9" />
+    <meta name="theme-color" content="#ffffff" />
     <title>SR Creation Studio — Stories worth keeping. Jaffna.</title>
     <meta
       name="description"
@@ -30,7 +30,11 @@
       rel="canonical"
       href="https://kowshi1119.github.io/sr-creation-studio-website/"
     />
-    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link
+      rel="icon"
+      href="assets/favicon.svg?v=20260916-brand"
+      type="image/svg+xml"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -38,16 +42,64 @@
       rel="stylesheet"
     />
     <link rel="preload" href="assets/photos/wedding-2.webp" as="image" />
+    <script src="assets/appearance.js"></script>
     <link rel="stylesheet" href="assets/studio.css" />
+    <link rel="stylesheet" href="assets/brand.css" />
     <script src="assets/portfolio.js" defer></script>
-    <script src="assets/studio.js" defer></script>
+    <script src="assets/studio.js?v=20260916-brand" defer></script>
   </head>
   <body>
+    <dialog
+      class="intro-screen"
+      id="intro-screen"
+      aria-labelledby="intro-title"
+      aria-describedby="intro-status"
+    >
+      <button class="intro-skip" id="intro-skip" type="button" autofocus>
+        Skip intro ↗
+      </button>
+      <div class="intro-content">
+        <img
+          class="intro-logo"
+          src="assets/studio-logo.jpg"
+          width="85"
+          height="85"
+          alt="SR Creation Studio — Memory Maker"
+        />
+        <p class="eyebrow">SR CREATION STUDIO · JAFFNA</p>
+        <h2 class="intro-title" id="intro-title">
+          Every story starts<br />with <em>a click.</em>
+        </h2>
+        <div class="intro-camera-scene" aria-hidden="true">
+          <div class="intro-camera">
+            <span class="camera-release"></span><span class="camera-grip"></span
+            ><span class="camera-wordmark">SR</span
+            ><span class="camera-viewfinder"></span
+            ><span class="camera-light"></span>
+            <div class="camera-lens">
+              <div class="camera-glass">
+                <div class="camera-aperture"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="intro-status" id="intro-status" role="status">
+          Finding the light…
+        </p>
+        <div class="intro-track" aria-hidden="true"><span></span></div>
+        <p class="intro-caption">MEMORY MAKER · STUDIO INTRO</p>
+      </div>
+      <div class="intro-flash" aria-hidden="true"></div>
+    </dialog>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header" id="site-header">
       <a class="brand" href="#home" aria-label="SR Creation Studio home"
         ><span class="brand-mark" id="brand-mark"
-          >SR<span class="brand-star">✳</span></span
+          ><img
+            src="assets/studio-logo.jpg"
+            width="59"
+            height="59"
+            alt="" /></span
         ><span class="brand-name"
           >CREATION STUDIO<small>PHOTOGRAPHY & FILMS</small></span
         ></a
@@ -59,6 +111,37 @@
       <a class="nav-book" href="#contact"
         >Let’s create together <span aria-hidden="true">↗</span></a
       >
+      <button
+        class="theme-toggle"
+        id="theme-toggle"
+        type="button"
+        aria-label="Switch to dark mode"
+        hidden
+      >
+        <svg
+          class="theme-moon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" />
+        </svg>
+        <svg
+          class="theme-sun"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+          />
+        </svg>
+      </button>
       <button
         class="menu-toggle"
         id="menu-toggle"

@@ -30,6 +30,7 @@ function createServer() {
         ".css": "text/css; charset=utf-8",
         ".svg": "image/svg+xml",
         ".webp": "image/webp",
+        ".jpg": "image/jpeg",
         ".json": "application/json",
       };
       res.setHeader(

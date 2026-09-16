@@ -33,6 +33,9 @@ const { createServer } = require("../scripts/serve.cjs");
     );
     await page.goto(url, { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(
+      () => document.documentElement.dataset.intro === "complete",
+    );
     assert.match(await page.locator("h1").innerText(), /Some moments/);
     assert.equal(await page.locator(".album-card").count(), 2);
     assert.equal(
@@ -152,6 +155,9 @@ const { createServer } = require("../scripts/serve.cjs");
     );
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: "networkidle" });
+    await page.waitForFunction(
+      () => document.documentElement.dataset.intro === "complete",
+    );
     await page.evaluate(async () => {
       await Promise.all(
         [...document.images]

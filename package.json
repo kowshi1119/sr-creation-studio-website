@@ -4,8 +4,9 @@
   },
   "private": true,
   "scripts": {
-    "test": "node tests/smoke.cjs",
-    "dev": "node scripts/serve.cjs"
+    "test": "node tests/smoke.cjs && node tests/appearance.cjs",
+    "dev": "node scripts/serve.cjs",
+    "test:appearance": "node tests/appearance.cjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
