@@ -8,6 +8,7 @@ An editorial photography and film website for SR Creation Studio, Jaffna, Sri La
 - Light and dark themes, a header toggle, saved visitor preference, and automatic system-theme detection.
 - A 3.5-second CSS 3D camera intro: shutter press, aperture closure, and one brief flash. Skip or press Escape to enter immediately; reduced-motion visitors bypass it.
 - Layered CSS 3D photo frames, gentle floating motion, pointer perspective and gallery depth.
+- A motion layer: masked headline reveal as the intro irises open, per-layer hero parallax with a moving light sheen, a scroll-driven hero hand-off, a seamless discipline marquee, curtain reveals and 3D tilt with glare on albums, a gliding filter pill, spotlight service cards, a rotating studio stamp, a living border on the featured package, letter-by-letter footer wordmark, dialog and assistant entrances, a reading progress line, a header that steps aside while reading, magnetic calls to action, a cursor ring that invites visitors to view albums, film grain, and a circular theme-change transition.
 - A motion pause button, reduced-motion support and animation suspension outside the hero.
 - Album category filters, keyboard-accessible galleries and native modal dialogs with focus restoration.
 - Existing wedding, ceremony and framing prices, with WhatsApp and email inquiries.
@@ -42,7 +43,9 @@ Browser tests cover five viewport widths, photo loading, filters, keyboard galle
 - `index.html`: public page structure, metadata and dialogs.
 - `assets/studio.css`: visual design, responsive layouts and CSS 3D motion.
 - `assets/brand.css`: logo palette, light/dark theme tokens and camera intro styling.
-- `assets/appearance.js`: early theme initialization, preference storage and timed intro.
+- `assets/appearance.js`: early theme initialization, preference storage, theme transition and timed intro.
+- `assets/motion.css`: the motion and depth layer, loaded after `brand.css`; hidden “before” states apply only when motion is allowed.
+- `assets/motion.js`: pointer depth, scroll reveals, marquee, filter pill and cursor ring; a progressive enhancement the page does not depend on.
 - `assets/studio-logo.jpg`: supplied studio logo, used as the default header mark and intro branding.
 - `assets/studio.js`: services, default pricing, interaction and read-only Firebase integration.
 - `assets/portfolio.js`: fallback albums extracted from the repository’s existing studio backup.
@@ -82,3 +85,7 @@ The bundled wedding and graduation photographs come from `sr-studio-backup-2026-
 The intro plays on each full page load and ends after 3.5 seconds, independently of Firebase or image downloads. Its duration is set in `assets/appearance.js` and matching animation timings in `assets/brand.css`. It is not a loading-percentage indicator. No audio autoplays.
 
 The visitor’s theme choice is stored under `sr_theme`; without a saved choice the site follows the operating-system color scheme. Theme initialization runs before stylesheet rendering to avoid displaying the wrong theme first. If JavaScript is disabled, the intro stays closed and the core page remains accessible.
+
+## Motion
+
+Every animation in `assets/motion.css` sits behind `prefers-reduced-motion: no-preference` or the existing `motion-enabled` class, so visitors who ask for less motion get a still, fully visible page. The hero “Pause motion” button also pauses the orbits, marquee, featured-package border, cursor ring and pointer parallax. Pointer effects only run for a mouse or trackpad. Scroll-driven effects use CSS scroll timelines where the browser supports them and are simply skipped elsewhere. Only `transform`, `opacity` and `clip-path` are animated, and no animation library or WebGL is used.
