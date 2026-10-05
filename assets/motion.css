@@ -744,8 +744,8 @@ p {
   overflow: visible;
 }
 .stamp-ring text {
-  font: 600 7.2px var(--sans);
-  letter-spacing: 2px;
+  font: 600 9px var(--sans);
+  letter-spacing: 1px;
   fill: var(--ink);
 }
 @media (prefers-reduced-motion: no-preference) {

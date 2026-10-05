@@ -104,9 +104,7 @@
 .chat-message.user {
   color: var(--on-dark);
 }
-.services-section h2 em,
 .services-section .eyebrow,
-.contact-intro h2 em,
 .contact-intro h2 > span,
 .contact-intro > .eyebrow,
 .contact-details .eyebrow,
@@ -194,13 +192,14 @@ dialog::backdrop {
     gap: 16px;
   }
   .brand-name {
-    font-size: 9px;
+    font-size: var(--fs-label);
   }
   .site-header {
     gap: 16px;
   }
+  .desktop-nav,
   .nav-book {
-    font-size: 10px;
+    font-size: 0.8125rem;
   }
 }
 @media (max-width: 850px) {
@@ -257,7 +256,7 @@ dialog::backdrop {
   background: transparent;
   border-bottom: 1px solid var(--line);
   padding: 10px 0;
-  font-size: 11px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .intro-content {
@@ -274,13 +273,15 @@ dialog::backdrop {
 }
 .intro-content .eyebrow {
   color: var(--accent);
-  font-size: 9px;
 }
 .intro-title {
   font-size: clamp(38px, 5vw, 58px);
   margin: 15px 0 25px;
-  letter-spacing: -1.5px;
+  letter-spacing: -0.025em;
   line-height: 1.06;
+}
+.intro-title em {
+  color: var(--accent);
 }
 .intro-camera-scene {
   height: 220px;
@@ -432,7 +433,7 @@ dialog::backdrop {
   clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
 }
 .intro-status {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted);
   margin: 14px 0 18px;
   min-height: 21px;
@@ -453,8 +454,6 @@ dialog::backdrop {
   transform-origin: left;
 }
 .intro-caption {
-  font-size: 7px;
-  letter-spacing: 2px;
   color: var(--muted);
   margin-top: 15px;
 }
@@ -547,7 +546,6 @@ dialog::backdrop {
   .intro-skip {
     right: 22px;
     top: 16px;
-    font-size: 10px;
   }
   .intro-logo {
     width: 72px;

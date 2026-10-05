@@ -2,32 +2,32 @@ const SERVICES = [
   {
     icon: "favorite",
     title: "Wedding Photography",
-    desc: "Cinematic storytelling of your union — from intimate moments to grand celebrations — captured with artistry and soul.",
+    desc: "Two photographers and at least two videographers on every package, with registration, Mehendi, reception, drone and outdoor shoots added as the packages grow.",
   },
   {
     icon: "celebration",
     title: "Puberty Ceremonies",
-    desc: "Beautifully documented milestone celebrations with full-day coverage, drone shots, and traditional elegance.",
+    desc: "Photo and video coverage of the ceremony, with Meganthi, cake cutting and outdoor shoots in the Signature and Complete packages. Drone coverage is free.",
   },
   {
     icon: "person",
     title: "Portrait & Model Shoots",
-    desc: "Editorial-quality portraits for models, professionals, and anyone who wants to look and feel extraordinary.",
+    desc: "Portrait sessions for models, graduates and professionals, with gentle direction on posing so you feel at ease in front of the camera.",
   },
   {
     icon: "cake",
     title: "Birthday & Events",
-    desc: "Every laugh, every hug, every moment — preserved with cinematic clarity and warm storytelling.",
+    desc: "Birthdays and family celebrations, photographed as they happen, with the moments that matter planned with you beforehand.",
   },
   {
     icon: "video_camera_front",
     title: "Videography",
-    desc: "Cinematic wedding films and event highlight reels that play like movies you will watch forever.",
+    desc: "Wedding films and event highlight reels from a dedicated video team, included in every wedding package.",
   },
   {
     icon: "photo_frame",
     title: "Framing & Albums",
-    desc: "Premium glass frames and Duro frames in all sizes, plus handcrafted photo albums that last a lifetime.",
+    desc: "Glass and Duro frames from 6×4 to 24×36 inches, and printed albums of 35 to 75 sheets.",
   },
 ];
 
@@ -139,7 +139,7 @@ const PACKAGES = {
     items: [
       {
         id: "p1",
-        title: "Package 01",
+        title: "Essential",
         badge: null,
         priceLKR: "180,000",
         featured: false,
@@ -153,7 +153,7 @@ const PACKAGES = {
       },
       {
         id: "p2",
-        title: "Package 02",
+        title: "Signature",
         badge: "Popular",
         priceLKR: "280,000",
         featured: true,
@@ -169,7 +169,7 @@ const PACKAGES = {
       },
       {
         id: "p3",
-        title: "Package 03",
+        title: "Complete",
         badge: "Complete",
         priceLKR: "300,000",
         featured: false,
@@ -255,6 +255,17 @@ const categoryLabel = (category) =>
     CEREMONY: "Ceremonies",
     BIRTHDAY: "Birthdays",
   })[category] || String(category || "Stories").replaceAll("_", " ");
+// Singular, sentence-case name for a single album's details.
+const categoryName = (category) => {
+  const name =
+    {
+      WEDDING: "Wedding",
+      MODEL: "Portrait",
+      CEREMONY: "Ceremony",
+      BIRTHDAY: "Birthday",
+    }[category] || categoryLabel(category);
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+};
 const remoteCache = new Map();
 function safeGet(key, fallback = null) {
   if (remoteCache.has(key)) return remoteCache.get(key);
@@ -352,7 +363,7 @@ function buildPortfolio() {
       currentFilter === "ALL" || (a.category || "STORIES") === currentFilter,
   );
   $("#portfolio-count").textContent =
-    String(filtered.length).padStart(2, "0") + " STORIES";
+    filtered.length + (filtered.length === 1 ? " story" : " stories");
   const grid = $("#albums-grid");
   grid.replaceChildren();
   if (!filtered.length)
@@ -382,9 +393,7 @@ function buildPortfolio() {
       element(
         "span",
         "album-category",
-        categoryLabel(album.category).toUpperCase() +
-          " / " +
-          (album.location || "JAFFNA"),
+        categoryName(album.category) + ", " + (album.location || "Jaffna"),
       ),
       element("h3", "", album.title),
     );
@@ -430,11 +439,11 @@ $$("dialog").forEach((dialog) => {
 function openAlbum(album) {
   $("#album-modal-title").textContent = album.title;
   $("#album-modal-meta").textContent = [
-    categoryLabel(album.category),
+    categoryName(album.category),
     album.location,
   ]
     .filter(Boolean)
-    .join(" / ");
+    .join(", ");
   $("#album-modal-desc").textContent = album.shortDescription || "";
   const photos = albumPhotos(album);
   const grid = $("#album-modal-grid");
@@ -542,7 +551,7 @@ function buildServices() {
         element("span", "service-arrow", "↗"),
         element("h3", "", service.title),
         element("p", "", service.desc),
-        element("span", "service-link", "LET’S TALK ABOUT IT  ↗"),
+        element("span", "service-link", "Check availability"),
       );
       button.addEventListener("click", () =>
         openInquiry(service.title, service.desc),
@@ -650,7 +659,7 @@ function renderPackagePanel(panel, category) {
         );
         card.append(element("p", "pkg-tier", category.name));
         if (pkg.featured)
-          card.append(element("span", "pkg-badge", "STUDIO SELECTION"));
+          card.append(element("span", "pkg-badge", "Studio’s pick"));
         const title =
           category.id === "wedding" && pkg.badge ? pkg.badge : pkg.title;
         card.append(element("h3", "", title));
@@ -668,7 +677,7 @@ function renderPackagePanel(panel, category) {
         const button = element(
           "button",
           "button button-dark",
-          "Inquire about this package ↗",
+          "Check availability",
         );
         button.type = "button";
         button.addEventListener("click", () =>

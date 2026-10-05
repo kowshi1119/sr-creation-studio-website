@@ -11,6 +11,7 @@ An editorial photography and film website for SR Creation Studio, Jaffna, Sri La
 - A motion layer: masked headline reveal as the intro irises open, per-layer hero parallax with a moving light sheen, a scroll-driven hero hand-off, a seamless discipline marquee, curtain reveals and 3D tilt with glare on albums, a gliding filter pill, spotlight service cards, a rotating studio stamp, a living border on the featured package, letter-by-letter footer wordmark, dialog and assistant entrances, a reading progress line, a header that steps aside while reading, magnetic calls to action, a cursor ring that invites visitors to view albums, film grain, and a circular theme-change transition.
 - A motion pause button, reduced-motion support and animation suspension outside the hero.
 - Album category filters, keyboard-accessible galleries and native modal dialogs with focus restoration.
+- A single type scale (size tokens in `assets/studio.css`): Cormorant Garamond for headings, prices and section labels, DM Sans for reading text, a 12px minimum for visible text, aligned figures for prices, and arrows only on buttons and links that leave the site.
 - Existing wedding, ceremony and framing prices, with WhatsApp and email inquiries.
 - An automated assistant that reads current package overrides.
 - Read-only Firebase content sync with a local cache and bundled portfolio fallback.
@@ -55,6 +56,7 @@ Browser tests cover five viewport widths, photo loading, filters, keyboard galle
 - `scripts/serve.cjs`: local preview server.
 - `tests/smoke.cjs`: browser regression checks.
 - `tests/appearance.cjs`: intro timing, skip controls, theme persistence, reduced motion, storage fallback, responsive layouts and contrast in both themes.
+- `tests/typography.cjs`: minimum text sizes at four widths and in every overlay, reading sizes, proportional heading tracking, serif headings and prices, aligned figures, label style and key copy.
 
 ## Content updates
 
