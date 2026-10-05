@@ -8,6 +8,17 @@
   --dark: #242922;
   --serif: "Cormorant Garamond", Georgia, serif;
   --sans: "DM Sans", Arial, sans-serif;
+  /* Type scale: one set of sizes, fluid between phone and desktop. */
+  --fs-label: 0.75rem;
+  --fs-small: 0.875rem;
+  --fs-body: clamp(1rem, 0.96rem + 0.18vw, 1.0625rem);
+  --fs-lead: clamp(1.125rem, 1.04rem + 0.3vw, 1.25rem);
+  --fs-eyebrow: clamp(1.125rem, 1.06rem + 0.3vw, 1.3125rem);
+  --fs-h3: clamp(1.75rem, 1.45rem + 0.9vw, 2.25rem);
+  --fs-h2: clamp(2.75rem, 1.95rem + 3.2vw, 4.75rem);
+  --track-label: 0.16em;
+  --track-h2: -0.03em;
+  --track-display: -0.04em;
 }
 * {
   box-sizing: border-box;
@@ -20,7 +31,10 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 14px/1.7 var(--sans);
+  font: var(--fs-body) / 1.7 var(--sans);
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 button,
@@ -63,12 +77,20 @@ h3 {
   line-height: 1.02;
 }
 h2 {
-  font-size: clamp(44px, 4.5vw, 70px);
-  letter-spacing: -2px;
+  font-size: var(--fs-h2);
+  letter-spacing: var(--track-h2);
 }
+h3 {
+  font-size: var(--fs-h3);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+/* The red italic belongs to the hero; section headings stay in ink. */
 h2 em,
 h1 em {
   font-weight: 400;
+}
+h1 em {
   color: var(--accent);
 }
 button:focus-visible,
@@ -99,11 +121,40 @@ button {
 .skip-link:focus {
   top: 12px;
 }
+/* Section labels: a quiet serif italic, introduced by a short red rule. */
 .eyebrow {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  line-height: 1.6;
+  font: italic 500 var(--fs-eyebrow) / 1.3 var(--serif);
+  letter-spacing: 0;
+}
+.section-heading .eyebrow,
+.about-copy .eyebrow,
+.contact-intro > .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.section-heading .eyebrow::before,
+.about-copy .eyebrow::before,
+.contact-intro > .eyebrow::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  flex-shrink: 0;
+  background: var(--brand-red, var(--accent));
+}
+/* The one uppercase style, kept for a few short labels. */
+.hero-bottom,
+.pkg-tier,
+.pkg-badge,
+.contact-details .eyebrow,
+.brand-name small,
+.intro-caption,
+.mobile-menu p,
+.about-image-label,
+.art-coordinate {
+  font: 500 var(--fs-label) / 1.5 var(--sans);
+  font-style: normal;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
 }
 .site-header {
@@ -151,22 +202,20 @@ button {
   letter-spacing: 0;
 }
 .brand-name {
-  font-size: 11px;
-  letter-spacing: 2px;
+  font-size: 0.8125rem;
+  letter-spacing: var(--track-label);
   font-weight: 700;
   line-height: 1.5;
 }
 .brand-name small {
   display: block;
-  font-size: 7px;
-  letter-spacing: 2.2px;
-  font-weight: 400;
-  margin-top: 4px;
+  margin-top: 2px;
+  color: var(--muted);
 }
 .desktop-nav {
   display: flex;
   gap: 30px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .desktop-nav a {
   position: relative;
@@ -188,12 +237,8 @@ button {
 }
 .nav-book {
   border-bottom: 1px solid var(--ink);
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 9px 0;
-}
-.nav-book span {
-  font-size: 19px;
-  margin-left: 18px;
 }
 .menu-toggle {
   display: none;
@@ -231,12 +276,10 @@ button {
   padding: 17px 0;
 }
 .mobile-menu a span {
-  font: 11px var(--sans);
+  font: var(--fs-label) var(--sans);
   margin-top: 13px;
 }
 .mobile-menu p {
-  font-size: 9px;
-  letter-spacing: 2px;
   margin-top: 45px;
 }
 .hero {
@@ -256,8 +299,6 @@ button {
   z-index: 2;
 }
 .hero .eyebrow {
-  font-size: 9px;
-  letter-spacing: 1.8px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -272,7 +313,7 @@ button {
 }
 .hero h1 {
   font-size: clamp(66px, 6.5vw, 104px);
-  letter-spacing: -4px;
+  letter-spacing: var(--track-display);
   line-height: 1.02;
   margin: 28px 0 25px;
 }
@@ -280,10 +321,10 @@ button {
   white-space: nowrap;
 }
 .hero-description {
-  max-width: 395px;
+  max-width: 34ch;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.9;
+  font-size: var(--fs-lead);
+  line-height: 1.6;
 }
 .hero-actions {
   display: flex;
@@ -298,8 +339,9 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 30px;
-  font-size: 11px;
+  font-size: var(--fs-small);
   font-weight: 500;
+  letter-spacing: 0.01em;
   border: 1px solid transparent;
   transition:
     background 0.25s,
@@ -331,7 +373,7 @@ button {
   padding: 12px 0;
   background: transparent;
   border-bottom: 1px solid var(--line);
-  font-size: 11px;
+  font-size: var(--fs-small);
   display: inline-flex;
   gap: 18px;
 }
@@ -343,10 +385,9 @@ button {
   align-items: center;
   gap: 15px;
   color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.2px;
+  font-size: 0.8125rem;
   margin-top: 44px;
-  line-height: 1.8;
+  line-height: 1.6;
 }
 .hero-signature strong {
   font-weight: 400;
@@ -386,9 +427,7 @@ button {
   object-fit: cover;
 }
 .photo-frame figcaption {
-  font-size: 6px;
-  font-weight: 600;
-  letter-spacing: 1.1px;
+  font: italic 500 0.9375rem / 1 var(--serif);
   height: 32px;
   display: flex;
   align-items: center;
@@ -445,8 +484,9 @@ button {
   background: #f3f0e9dd;
 }
 .art-seal span {
-  font-size: 7px;
-  letter-spacing: 1.5px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
 }
 .art-seal i {
   font: italic 35px/1.2 var(--serif);
@@ -475,16 +515,15 @@ button {
 .art-coordinate {
   position: absolute;
   right: 12%;
-  top: -22px;
-  font-size: 8px;
-  letter-spacing: 2px;
+  top: -24px;
+  font-size: 10px;
   color: #858576;
 }
 .art-note {
   position: absolute;
   bottom: -39px;
   right: 0;
-  font: italic 16px var(--serif);
+  font: italic 1.125rem var(--serif);
   color: var(--muted);
 }
 .motion-toggle {
@@ -493,7 +532,7 @@ button {
   left: 10%;
   background: transparent;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--fs-label);
   padding: 5px;
   z-index: 5;
 }
@@ -513,9 +552,13 @@ button {
   align-items: center;
   border-top: 1px solid var(--line);
   padding-top: 20px;
-  font-size: 8px;
-  letter-spacing: 1.8px;
   color: var(--muted);
+}
+@media (min-width: 601px) {
+  /* Leaves room for the assistant button that floats over the hero's foot. */
+  .hero-bottom {
+    padding-right: 170px;
+  }
 }
 .hero-bottom a {
   color: var(--ink);
@@ -555,10 +598,10 @@ button {
   margin-bottom: 22px;
 }
 .section-heading > p {
-  max-width: 330px;
+  max-width: 36ch;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.9;
+  font-size: var(--fs-body);
+  line-height: 1.7;
   padding-bottom: 6px;
 }
 .portfolio-toolbar {
@@ -575,8 +618,8 @@ button {
 }
 .filter-btn {
   background: transparent;
-  padding: 9px 17px;
-  font-size: 10px;
+  padding: 10px 18px;
+  font-size: var(--fs-small);
   color: var(--muted);
   border: 1px solid var(--line);
   border-radius: 0;
@@ -589,8 +632,7 @@ button {
   color: var(--paper);
 }
 .portfolio-count {
-  font-size: 9px;
-  letter-spacing: 1px;
+  font-size: var(--fs-small);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -656,18 +698,16 @@ button {
   gap: 15px;
 }
 .album-info h3 {
-  font-size: 32px;
   line-height: 1.1;
 }
 .album-category {
   display: block;
-  font-size: 8px;
-  letter-spacing: 1.7px;
+  font-size: var(--fs-small);
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .album-info > span {
-  font-size: 9px;
+  font-size: var(--fs-small);
   color: var(--muted);
   white-space: nowrap;
   padding-top: 27px;
@@ -679,7 +719,7 @@ button {
   border-bottom: 1px solid var(--ink);
   padding-bottom: 9px;
   margin-top: 42px;
-  font-size: 11px;
+  font-size: var(--fs-small);
 }
 .underlined-link:hover {
   color: var(--accent);
@@ -693,9 +733,6 @@ button {
   color: var(--paper);
   max-width: none;
   padding-inline: max(6%, calc((100% - 1408px) / 2));
-}
-.services-section h2 em {
-  color: #c8b69b;
 }
 .services-section .eyebrow {
   color: #c8b69b;
@@ -721,24 +758,25 @@ button {
   transform: translateY(-4px);
 }
 .service-number {
-  font-size: 9px;
-  letter-spacing: 1px;
+  font-size: var(--fs-label);
+  letter-spacing: 0.1em;
   color: #a6aa9c;
 }
 .service-card h3 {
-  font-size: 30px;
   margin: 23px 0 16px;
 }
 .service-card p {
-  font-size: 12px;
-  line-height: 1.9;
+  font-size: var(--fs-body);
+  line-height: 1.65;
   color: #b3b7ab;
-  max-width: 310px;
+  max-width: 34ch;
 }
 .service-link {
   margin-top: 25px;
-  font-size: 9px;
-  letter-spacing: 1.3px;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 3px;
   color: #d5c7ae;
   display: flex;
   align-items: center;
@@ -775,8 +813,6 @@ button {
   bottom: 0;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  font-size: 8px;
-  letter-spacing: 2px;
 }
 .about-stamp {
   width: 115px;
@@ -795,19 +831,19 @@ button {
   gap: 8px;
 }
 .about-stamp span {
-  font: 7px/1.4 var(--sans);
-  letter-spacing: 1.5px;
+  font: 500 9px/1.4 var(--sans);
+  letter-spacing: 0.12em;
   text-align: center;
 }
 .about-copy .eyebrow {
   margin-bottom: 28px;
 }
 .about-copy > p:not(.eyebrow) {
-  font-size: 13px;
+  font-size: var(--fs-body);
   color: var(--muted);
-  line-height: 1.95;
+  line-height: 1.75;
   margin-top: 23px;
-  max-width: 425px;
+  max-width: 46ch;
 }
 .studio-values {
   border-block: 1px solid var(--line);
@@ -816,12 +852,14 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
-  font-size: 9px;
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
   color: var(--accent);
 }
 .studio-values strong {
   color: var(--ink);
-  font-size: 10px;
+  font-size: 0.9375rem;
+  letter-spacing: 0;
   font-weight: 500;
   margin-left: 7px;
 }
@@ -846,14 +884,13 @@ button {
   font-size: 10px;
 }
 .process-grid h3 {
-  font-size: 32px;
   margin: 23px 0 16px;
 }
 .process-grid p {
-  font-size: 12px;
+  font-size: var(--fs-body);
   color: var(--muted);
-  max-width: 320px;
-  line-height: 1.9;
+  max-width: 36ch;
+  line-height: 1.7;
 }
 .packages-section {
   background: #ece9e0;
@@ -871,7 +908,7 @@ button {
 .pkg-tab {
   padding: 14px 0;
   background: transparent;
-  font-size: 11px;
+  font-size: 0.9375rem;
   white-space: nowrap;
   border-bottom: 2px solid transparent;
   color: var(--muted);
@@ -886,12 +923,15 @@ button {
   gap: 20px;
 }
 .pkg-card {
+  --pkg-pad-y: 30px;
+  --pkg-pad-x: 25px;
   border: 1px solid #d0cec2;
-  padding: 30px 25px;
+  padding: var(--pkg-pad-y) var(--pkg-pad-x);
   display: flex;
   flex-direction: column;
   background: #f5f2eb;
   position: relative;
+  container-type: inline-size;
 }
 .pkg-card.featured {
   background: var(--dark);
@@ -899,48 +939,51 @@ button {
   border-color: var(--dark);
 }
 .pkg-tier {
-  font-size: 8px;
-  letter-spacing: 1.5px;
   color: var(--muted);
-  text-transform: uppercase;
 }
 .pkg-card h3 {
-  font-size: 34px;
+  font-size: calc(var(--fs-h3) * 1.08);
   margin: 19px 0 8px;
 }
+/* Prices read as display figures: serif, lining and evenly spaced. */
 .pkg-price {
-  font-size: 28px;
-  letter-spacing: -1px;
+  font: 500 2.75rem / 1 var(--serif);
+  letter-spacing: -0.01em;
+  font-variant-numeric: lining-nums tabular-nums;
   border-bottom: 1px solid var(--line);
   padding-bottom: 24px;
   margin-bottom: 24px;
 }
 .pkg-price span {
-  font-size: 10px;
-  letter-spacing: 1px;
-  margin-right: 7px;
+  font: 500 var(--fs-label) var(--sans);
+  letter-spacing: var(--track-label);
+  margin-right: 10px;
 }
 .pkg-features {
   list-style: none;
   padding: 0;
   margin: 0 0 25px;
-  font-size: 11px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
   color: var(--muted);
 }
 .pkg-features li {
   padding: 5px 0;
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 .pkg-features li:before {
-  content: "↗";
+  content: "";
+  flex: 0 0 14px;
+  height: 1px;
+  margin-top: 0.75em;
+  background: currentColor;
   color: var(--accent);
 }
 .pkg-card .button {
   margin-top: auto;
   width: 100%;
   justify-content: center;
-  font-size: 10px;
 }
 .pkg-card.featured .pkg-features,
 .pkg-card.featured .pkg-tier {
@@ -960,19 +1003,28 @@ button {
   position: absolute;
   right: 18px;
   top: 24px;
-  font-size: 7px;
-  letter-spacing: 1.5px;
   color: #d5c7ae;
+}
+/* On narrow cards the badge takes the category label's place; the tab names it. */
+@container (max-width: 300px) {
+  .pkg-card.featured .pkg-tier {
+    visibility: hidden;
+  }
+  .pkg-badge {
+    top: var(--pkg-pad-y);
+    left: var(--pkg-pad-x);
+    right: auto;
+  }
 }
 .pkg-note {
   border-top: 1px solid #d1cfc2;
   padding-top: 20px;
   margin-top: 25px;
-  font-size: 11px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .package-disclaimer {
-  font-size: 10px;
+  font-size: var(--fs-small);
   color: var(--muted);
   margin-top: 24px;
 }
@@ -987,7 +1039,10 @@ button {
   text-align: left;
   padding: 13px 20px;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 0.9375rem;
+}
+.frame-table td {
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .frame-table th {
   background: var(--dark);
@@ -1008,12 +1063,9 @@ button {
 }
 .contact-intro h2 {
   font-size: clamp(65px, 8vw, 128px);
-  letter-spacing: -4px;
+  letter-spacing: -0.035em;
   position: relative;
   margin: 28px 0 40px;
-}
-.contact-intro h2 em {
-  color: #c8b69b;
 }
 .contact-intro h2 > span {
   position: absolute;
@@ -1033,7 +1085,8 @@ button {
 }
 .contact-intro-bottom p {
   color: #b3b7ab;
-  font-size: 13px;
+  font-size: var(--fs-lead);
+  line-height: 1.5;
 }
 .contact-details {
   max-width: 1408px;
@@ -1045,18 +1098,17 @@ button {
   gap: 35px;
 }
 .contact-details .eyebrow {
-  font-size: 8px;
   color: #c8b69b;
   display: block;
   margin-bottom: 18px;
 }
 .contact-details p {
-  font-size: 12px;
-  line-height: 1.9;
+  font-size: var(--fs-body);
+  line-height: 1.7;
   margin-bottom: 10px;
 }
 .contact-details a {
-  font-size: 11px;
+  font-size: 0.9375rem;
   display: inline-block;
   border-bottom: 1px solid #ffffff33;
   margin-right: 15px;
@@ -1077,12 +1129,12 @@ button {
   gap: 22px;
   align-items: baseline;
   font: clamp(32px, 7.7vw, 126px)/1 var(--serif);
-  letter-spacing: -3px;
+  letter-spacing: -0.025em;
   white-space: nowrap;
 }
 .footer-wordmark span {
-  font-size: 12px;
-  letter-spacing: 3px;
+  font-size: var(--fs-label);
+  letter-spacing: 0.25em;
 }
 .footer-wordmark i {
   font: 60px var(--sans);
@@ -1096,8 +1148,7 @@ button {
   padding-top: 35px;
   margin-top: 35px;
   border-top: 1px solid var(--line);
-  font-size: 8px;
-  letter-spacing: 0.6px;
+  font-size: 0.8125rem;
   color: var(--muted);
 }
 dialog {
@@ -1132,12 +1183,11 @@ dialog::backdrop {
 }
 .inquiry-dialog h2 {
   font-size: 42px;
-  letter-spacing: -1px;
+  letter-spacing: -0.02em;
 }
 .inquiry-dialog > p:not(.eyebrow) {
   margin: 20px 0;
   color: var(--muted);
-  font-size: 13px;
 }
 .inquiry-dialog .button {
   display: flex;
@@ -1146,7 +1196,7 @@ dialog::backdrop {
 }
 .inquiry-dialog small {
   display: block;
-  font-size: 10px;
+  font-size: 0.8125rem;
   color: var(--muted);
   margin-top: 20px;
 }
@@ -1163,11 +1213,11 @@ dialog::backdrop {
 }
 .album-dialog h2 {
   font-size: 40px;
-  letter-spacing: -1px;
+  letter-spacing: -0.02em;
   margin-top: 7px;
 }
 .album-dialog > p {
-  font-size: 13px;
+  max-width: 60ch;
   color: var(--muted);
   margin-bottom: 20px;
 }
@@ -1239,7 +1289,7 @@ dialog::backdrop {
   width: 100%;
   text-align: center;
   color: #d1d4c8;
-  font-size: 11px;
+  font-size: var(--fs-small);
 }
 .chat-toggle {
   position: fixed;
@@ -1255,7 +1305,7 @@ dialog::backdrop {
   align-items: center;
   gap: 10px;
   box-shadow: 0 4px 22px #00000014;
-  font-size: 10px;
+  font-size: var(--fs-small);
 }
 .chat-toggle:hover {
   background: #e6e1d5;
@@ -1283,12 +1333,12 @@ dialog::backdrop {
 }
 .chatbot header strong {
   display: block;
-  font-size: 13px;
+  font-size: 0.9375rem;
   font-weight: 500;
 }
 .chatbot header small {
   display: block;
-  font-size: 9px;
+  font-size: var(--fs-label);
   color: var(--muted);
 }
 .chat-messages {
@@ -1300,8 +1350,8 @@ dialog::backdrop {
   gap: 13px;
 }
 .chat-message {
-  font-size: 12px;
-  line-height: 1.8;
+  font-size: 0.9375rem;
+  line-height: 1.6;
   white-space: pre-wrap;
   padding: 12px;
   background: #e5e2d8;
@@ -1326,8 +1376,8 @@ dialog::backdrop {
   padding: 12px 18px;
 }
 .chat-chips button {
-  font-size: 9px;
-  padding: 6px 9px;
+  font-size: 0.8125rem;
+  padding: 7px 11px;
   border: 1px solid var(--line);
   background: transparent;
 }
@@ -1341,7 +1391,7 @@ dialog::backdrop {
   flex: 1;
   background: transparent;
   border: 0;
-  font-size: 11px;
+  font-size: 1rem;
   color: var(--ink);
   padding: 8px;
 }
@@ -1406,8 +1456,14 @@ dialog::backdrop {
     gap: 20px;
   }
   .art-seal {
-    width: 90px;
-    height: 90px;
+    width: 100px;
+    height: 100px;
+  }
+  .photo-frame figcaption {
+    font-size: 0.875rem;
+  }
+  .hero-bottom-location {
+    display: none;
   }
   .section {
     padding-inline: 5%;
@@ -1426,9 +1482,6 @@ dialog::backdrop {
   }
   .services-grid {
     column-gap: 25px;
-  }
-  .service-card h3 {
-    font-size: 27px;
   }
   .pkg-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1460,17 +1513,12 @@ dialog::backdrop {
     padding: 65px 5% 100px;
     gap: 0;
   }
-  .hero .eyebrow {
-    font-size: 7px;
-    letter-spacing: 1.2px;
-  }
   .hero h1 {
     font-size: 58px;
-    letter-spacing: -2.5px;
   }
   .hero-description {
-    font-size: 12px;
-    max-width: 300px;
+    font-size: var(--fs-body);
+    max-width: 32ch;
   }
   .hero-actions {
     gap: 15px;
@@ -1497,29 +1545,25 @@ dialog::backdrop {
     height: 140px;
     bottom: 14px;
   }
-  .art-coordinate {
-    font-size: 6px;
-  }
   .art-seal {
-    width: 76px;
-    height: 76px;
+    width: 96px;
+    height: 96px;
     left: 0;
   }
   .art-seal i {
     font-size: 27px;
   }
   .art-seal span {
-    font-size: 5px;
+    letter-spacing: 0.06em;
   }
   .art-note {
-    font-size: 13px;
+    font-size: 0.9375rem;
+  }
+  .frame-main figcaption span:last-child {
+    display: none;
   }
   .motion-toggle {
     left: 0;
-    font-size: 8px;
-  }
-  .hero-bottom-location {
-    display: none;
   }
   .discipline-strip {
     font-size: 18px;
@@ -1532,8 +1576,7 @@ dialog::backdrop {
     padding-block: 75px;
   }
   .section-heading > p {
-    max-width: 240px;
-    font-size: 12px;
+    max-width: 30ch;
   }
   .albums-grid {
     gap: 25px;
@@ -1547,9 +1590,6 @@ dialog::backdrop {
   .album-card:nth-child(even) .album-thumb {
     height: 325px;
   }
-  .album-info h3 {
-    font-size: 28px;
-  }
   .album-info > span {
     display: none;
   }
@@ -1562,15 +1602,6 @@ dialog::backdrop {
   .about-visual > img {
     height: 460px;
   }
-  .about-copy h2 {
-    font-size: 46px;
-  }
-  .about-copy .eyebrow {
-    font-size: 8px;
-  }
-  .about-copy > p:not(.eyebrow) {
-    font-size: 12px;
-  }
   .studio-values {
     gap: 8px;
     flex-direction: column;
@@ -1578,9 +1609,6 @@ dialog::backdrop {
   }
   .process-grid {
     gap: 25px;
-  }
-  .process-grid h3 {
-    font-size: 27px;
   }
   .contact-intro h2 > span {
     font-size: 100px;
@@ -1611,12 +1639,11 @@ dialog::backdrop {
     gap: 12px;
   }
   .brand-name {
-    font-size: 9px;
-    letter-spacing: 1.5px;
+    font-size: var(--fs-label);
+    letter-spacing: 0.12em;
   }
   .brand-name small {
-    font-size: 6px;
-    letter-spacing: 1.5px;
+    letter-spacing: 0.1em;
   }
   .nav-book {
     display: none;
@@ -1629,34 +1656,26 @@ dialog::backdrop {
     min-height: auto;
     overflow: hidden;
   }
-  .hero .eyebrow {
-    font-size: 7px;
-    letter-spacing: 1.4px;
-  }
   .hero h1 {
     font-size: clamp(54px, 12.5vw, 76px);
-    letter-spacing: -2.3px;
     margin: 24px 0 20px;
   }
   .hero-description {
-    max-width: 340px;
-    font-size: 12px;
-    line-height: 1.85;
+    max-width: 36ch;
+    line-height: 1.65;
   }
   .hero-actions {
-    gap: 22px;
-    flex-wrap: nowrap;
+    gap: 14px 22px;
+    flex-wrap: wrap;
     margin-top: 24px;
   }
   .hero-actions .button {
-    font-size: 10px;
     gap: 18px;
-    padding: 14px 17px;
+    padding: 14px 18px;
     min-height: 48px;
   }
   .text-button {
-    font-size: 10px;
-    gap: 8px;
+    gap: 10px;
   }
   .hero-signature {
     display: none;
@@ -1684,10 +1703,13 @@ dialog::backdrop {
     bottom: 3px;
   }
   .art-seal {
-    width: 83px;
-    height: 83px;
+    width: 96px;
+    height: 96px;
     left: 2%;
     bottom: 2px;
+  }
+  .photo-frame figcaption {
+    font-size: 0.8125rem;
   }
   .art-coordinate {
     top: -23px;
@@ -1695,7 +1717,6 @@ dialog::backdrop {
   }
   .art-note {
     bottom: -32px;
-    font-size: 13px;
   }
   .motion-toggle {
     bottom: -32px;
@@ -1712,15 +1733,14 @@ dialog::backdrop {
     bottom: 20px;
     left: 6%;
     right: 6%;
-    font-size: 6px;
-    letter-spacing: 1px;
     gap: 15px;
+    justify-content: center;
   }
-  .hero-bottom a {
-    font-size: 6px;
+  .hero-bottom > span:first-child {
+    display: none;
   }
   .hero-bottom a span {
-    margin-left: 4px;
+    margin-left: 8px;
   }
   .discipline-strip {
     font-size: 17px;
@@ -1737,36 +1757,26 @@ dialog::backdrop {
   .section {
     padding: 65px 6%;
   }
-  h2 {
-    font-size: 44px;
-    letter-spacing: -1.4px;
-  }
   .section-heading {
     display: block;
     margin-bottom: 30px;
   }
   .section-heading .eyebrow {
-    font-size: 8px;
     margin-bottom: 20px;
   }
   .section-heading > p {
-    max-width: 340px;
-    font-size: 12px;
+    max-width: 40ch;
     margin-top: 23px;
   }
   .portfolio-toolbar {
     gap: 10px;
     margin-bottom: 22px;
   }
-  .portfolio-count {
-    font-size: 8px;
-  }
   .filter-bar {
-    gap: 5px;
+    gap: 6px;
   }
   .filter-btn {
-    font-size: 9px;
-    padding: 8px 12px;
+    padding: 9px 14px;
   }
   .albums-grid {
     grid-template-columns: 1fr;
@@ -1782,18 +1792,10 @@ dialog::backdrop {
   .album-info {
     padding-top: 17px;
   }
-  .album-info h3 {
-    font-size: 30px;
-  }
-  .album-category {
-    font-size: 7px;
-  }
   .album-info > span {
     display: block;
-    font-size: 8px;
   }
   .underlined-link {
-    font-size: 10px;
     margin-top: 30px;
   }
   .services-grid {
@@ -1804,16 +1806,13 @@ dialog::backdrop {
     padding: 23px 0;
   }
   .service-card h3 {
-    font-size: 30px;
     margin: 14px 0 12px;
   }
   .service-card p {
     max-width: 100%;
-    font-size: 12px;
   }
   .service-link {
     margin-top: 17px;
-    font-size: 8px;
   }
   .service-arrow {
     top: 20px;
@@ -1830,12 +1829,6 @@ dialog::backdrop {
   .about-visual > img {
     height: 460px;
   }
-  .about-copy h2 {
-    font-size: 48px;
-  }
-  .about-copy .eyebrow {
-    font-size: 8px;
-  }
   .studio-values {
     flex-direction: row;
     gap: 15px;
@@ -1846,7 +1839,6 @@ dialog::backdrop {
   }
   .process-grid h3 {
     margin-top: 15px;
-    font-size: 32px;
   }
   .process-grid p {
     max-width: 100%;
@@ -1858,30 +1850,18 @@ dialog::backdrop {
     gap: 24px;
     margin-bottom: 25px;
   }
-  .pkg-tab {
-    font-size: 10px;
-  }
   .pkg-cards {
     grid-template-columns: 1fr;
   }
   .pkg-card {
-    padding: 28px;
-  }
-  .pkg-features {
-    font-size: 12px;
-  }
-  .pkg-card h3 {
-    font-size: 38px;
+    --pkg-pad-y: 28px;
+    --pkg-pad-x: 28px;
   }
   .contact-section {
     padding: 65px 6% 40px;
   }
-  .contact-intro > .eyebrow {
-    font-size: 7px;
-  }
   .contact-intro h2 {
     font-size: 57px;
-    letter-spacing: -2px;
     margin-top: 25px;
   }
   .contact-intro h2 > span {
@@ -1912,13 +1892,8 @@ dialog::backdrop {
   }
   .footer-wordmark {
     font-size: 10.5vw;
-    letter-spacing: -1px;
     gap: 10px;
     flex-wrap: wrap;
-  }
-  .footer-wordmark span {
-    font-size: 7px;
-    letter-spacing: 1.7px;
   }
   .footer-wordmark i {
     font-size: 25px;
@@ -1927,7 +1902,6 @@ dialog::backdrop {
     padding: 35px 6% 95px;
   }
   .footer-bottom {
-    font-size: 7px;
     gap: 15px;
     margin-top: 28px;
     padding-top: 25px;
@@ -1936,7 +1910,6 @@ dialog::backdrop {
     right: 14px;
     bottom: 14px;
     padding: 12px 15px;
-    font-size: 9px;
   }
   .chatbot {
     right: 14px;
@@ -1953,9 +1926,6 @@ dialog::backdrop {
   }
   .album-dialog h2 {
     font-size: 29px;
-  }
-  .album-dialog .eyebrow {
-    font-size: 7px;
   }
   .album-gallery-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1999,11 +1969,10 @@ dialog::backdrop {
     height: 135px;
   }
   .photo-frame figcaption {
-    font-size: 5px;
-    letter-spacing: 0.5px;
+    font-size: var(--fs-label);
   }
   .art-note {
-    font-size: 11px;
+    font-size: 0.875rem;
   }
   .album-thumb,
   .album-card:nth-child(even) .album-thumb {
