@@ -45,8 +45,10 @@
     <script src="assets/appearance.js"></script>
     <link rel="stylesheet" href="assets/studio.css" />
     <link rel="stylesheet" href="assets/brand.css" />
+    <link rel="stylesheet" href="assets/motion.css?v=20261002-motion" />
     <script src="assets/portfolio.js" defer></script>
     <script src="assets/studio.js?v=20260916-brand" defer></script>
+    <script src="assets/motion.js?v=20261002-motion" defer></script>
   </head>
   <body>
     <dialog
@@ -92,6 +94,11 @@
       <div class="intro-flash" aria-hidden="true"></div>
     </dialog>
     <a class="skip-link" href="#main">Skip to content</a>
+    <div class="scroll-progress" aria-hidden="true"><span></span></div>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="cursor" aria-hidden="true">
+      <span class="cursor-ring"></span><span class="cursor-label">VIEW</span>
+    </div>
     <header class="site-header" id="site-header">
       <a class="brand" href="#home" aria-label="SR Creation Studio home"
         ><span class="brand-mark" id="brand-mark"
@@ -172,7 +179,12 @@
             <span class="status-dot"></span> A CREATIVE STUDIO IN JAFFNA, SRI
             LANKA
           </p>
-          <h1 id="hero-title">Some moments<br />deserve <em>forever.</em></h1>
+          <h1 id="hero-title">
+            <span class="line"><span>Some moments</span></span
+            ><span class="line"
+              ><span>deserve <em>forever.</em></span></span
+            >
+          </h1>
           <p class="hero-description">
             The quiet glances. The unfiltered joy. The feeling of being there.
             We turn your fleeting moments into stories worth keeping.
@@ -198,6 +210,7 @@
           id="hero-art"
           aria-label="A selection of SR Creation Studio wedding and portrait photography"
         >
+          <div class="hero-glow" aria-hidden="true"></div>
           <div class="orbit orbit-one" aria-hidden="true"></div>
           <div class="orbit orbit-two" aria-hidden="true"></div>
           <span class="art-coordinate" aria-hidden="true"
@@ -347,6 +360,19 @@
             loading="lazy"
           /><span class="about-image-label">THE ART OF NOTICING.</span>
           <div class="about-stamp" aria-hidden="true">
+            <svg class="stamp-ring" viewBox="0 0 124 124">
+              <defs>
+                <path
+                  id="stamp-path"
+                  d="M62,62 m-51,0 a51,51 0 1,1 102,0 a51,51 0 1,1 -102,0"
+                />
+              </defs>
+              <text>
+                <textPath href="#stamp-path" textLength="318">
+                  MEMORY MAKER · SR CREATION STUDIO · JAFFNA ·
+                </textPath>
+              </text>
+            </svg>
             SR<span>JAFFNA<br />SRI LANKA</span>
           </div>
         </div>

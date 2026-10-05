@@ -1,6 +1,8 @@
 /* Apply the chosen palette before CSS paints, then initialize the intro independently. */
 (() => {
   const root = document.documentElement;
+  // Reveal states in motion.css only apply once this script is running.
+  root.classList.add("js-motion");
   const systemTheme = matchMedia("(prefers-color-scheme: dark)");
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let preference = null;
@@ -40,11 +42,27 @@
     toggle.hidden = false;
     applyTheme(root.dataset.theme);
     toggle.addEventListener("click", () => {
-      preference = root.dataset.theme === "dark" ? "light" : "dark";
-      applyTheme(preference);
+      const next = root.dataset.theme === "dark" ? "light" : "dark";
+      preference = next;
       try {
-        localStorage.setItem("sr_theme", preference);
+        localStorage.setItem("sr_theme", next);
       } catch {}
+      if (!document.startViewTransition || reducedMotion.matches) {
+        applyTheme(next);
+        return;
+      }
+      // The new palette expands as a circle from the toggle itself.
+      const rect = toggle.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      root.style.setProperty("--vt-x", x + "px");
+      root.style.setProperty("--vt-y", y + "px");
+      root.style.setProperty(
+        "--vt-r",
+        Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) +
+          "px",
+      );
+      document.startViewTransition(() => applyTheme(next));
     });
 
     const intro = document.getElementById("intro-screen");
@@ -92,6 +110,12 @@
       setTimeout(() => {
         status.textContent = "Captured. Kept forever.";
       }, 2850),
+    );
+    // The iris opens onto the page while the hero headline rises into place.
+    timers.push(
+      setTimeout(() => {
+        root.dataset.intro = "exiting";
+      }, 3100),
     );
     // This is a timed studio introduction, not a simulated download percentage.
     timers.push(setTimeout(finishIntro, 3500));
