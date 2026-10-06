@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 <style>
 :root {
   --red:#D72638; --red-dark:#b01f2e; --gold:#e6c364; --gold-dark:#785d00;
@@ -188,7 +189,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
     <h1>SR Creation Studio</h1>
     <div class="sub">Admin Portal</div>
     <div class="form-group">
-      <label>Username</label>
+      <label for="login-user" id="login-user-label">Username</label>
       <input class="form-input" id="login-user" type="text" placeholder="Enter username" autocomplete="username"/>
     </div>
     <div class="form-group">
@@ -198,7 +199,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
     <button class="btn btn-red" style="width:100%;margin-top:0.5rem;" onclick="doLogin()">
       <span class="material-symbols-outlined">login</span> Sign In
     </button>
-    <div id="login-error" class="show" style="display:none;">Incorrect username or password.</div>
+    <div id="login-error" role="alert">Incorrect username or password.</div>
   </div>
 </div>
 
@@ -413,7 +414,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
           </div>
           <button class="btn btn-red" onclick="changePassword()"><span class="material-symbols-outlined">lock_reset</span> Update Password</button>
         </div>
-        <div class="panel" style="max-width:460px;margin-top:1.5rem;">
+        <div class="panel" id="username-panel" style="max-width:460px;margin-top:1.5rem;">
           <div class="panel-title">Change Username</div>
           <div class="form-group">
             <label>New Username</label>
@@ -530,19 +531,48 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
    STORAGE
 ════════════════════════════════════════════ */
 const KEYS = { creds:'sr_admin_creds', albums:'sr_albums', logo:'sr_logo', pkgs:'sr_packages', pkgCats:'sr_pkg_categories', albumCats:'sr_album_categories' };
-function safeGet(k,fb=null){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}}
+// Latest website data (JSON text) for the cloud keys. Photos can outgrow this
+// browser's localStorage, so the cloud copy is kept here and localStorage is only a cache.
+const cloudMemory = new Map();
+// Keys whose "offline copy is full" warning was already shown this session.
+const fullLocalKeys = new Set();
+function safeGet(k,fb=null){try{const v=cloudMemory.has(k)?cloudMemory.get(k):localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}}
 // Keys synced to Firebase — admin credentials are NEVER sent to the cloud
 const CLOUD_DATA_KEYS = ['sr_albums', 'sr_logo', 'sr_packages', 'sr_pkg_categories', 'sr_album_categories'];
 
-function safeSet(k, v) {
-  try {
-    localStorage.setItem(k, JSON.stringify(v));
-    if (CLOUD_DATA_KEYS.includes(k)) pushCloudData(k, v); // ← mirrors to Firebase (creds excluded)
-    return true;
-  } catch(e) {
-    toast('Storage error: ' + e.message, 'error');
-    return false;
+/*
+ * saveData(k, v)
+ * Saves locally and mirrors cloud keys to Firebase. A full localStorage no
+ * longer blocks the cloud write. Returns { saved, published, reason }, where
+ * published is a promise of the cloud result, or null when cloud sync is off.
+ */
+function saveData(k, v) {
+  const cloud = CLOUD_DATA_KEYS.includes(k) && CLOUD_SYNC.enabled;
+  if (cloud && !CLOUD_SYNC.ready) {
+    // Saving before the first snapshot would publish an incomplete copy over the website's data.
+    toast('Still loading the website data. Please try again in a moment.', 'warning');
+    return { saved: false, published: null, reason: 'loading' };
   }
+  const json = JSON.stringify(v);
+  try {
+    localStorage.setItem(k, json);
+  } catch(e) {
+    if (!cloud) {
+      toast('Storage error: ' + e.message, 'error');
+      return { saved: false, published: null, reason: 'storage' };
+    }
+    try { localStorage.removeItem(k); } catch {}
+    if (!fullLocalKeys.has(k)) {
+      fullLocalKeys.add(k);
+      toast('This browser\'s offline copy is full, so changes are saved to the cloud only.', 'warning');
+    }
+  }
+  if (cloud) cloudMemory.set(k, json);
+  return { saved: true, published: cloud ? pushCloudData(k, v) : null }; // ← mirrors to Firebase (creds excluded)
+}
+
+function safeSet(k, v) {
+  return saveData(k, v).saved;
 }
 
 /* ════════════════════════════════════════════
@@ -566,7 +596,7 @@ window.SR_FIREBASE_CONFIG = window.SR_FIREBASE_CONFIG || {
 
 // Shared Realtime Database path — must match index.html exactly
 const CLOUD_PATH = 'srStudioSiteData';
-const CLOUD_SYNC = { enabled: false, db: null, applyingRemote: false };
+const CLOUD_SYNC = { enabled: false, ready: false, db: null, applyingRemote: false };
 
 /*
  * initFirebase()
@@ -608,10 +638,15 @@ function loadLocalFallback() {
  * No-ops silently while a remote update is being applied.
  */
 function pushCloudData(key, value) {
-  if (!CLOUD_SYNC.enabled || CLOUD_SYNC.applyingRemote) return;
-  CLOUD_SYNC.db.ref(CLOUD_PATH + '/' + key).set(value)
-    .then(() => console.debug('[SR Cloud] Pushed:', key))
-    .catch(err => console.error('[SR Cloud] Push failed for "' + key + '":', err));
+  if (!CLOUD_SYNC.enabled || CLOUD_SYNC.applyingRemote) return null;
+  // A synchronous SDK error (e.g. an invalid value) is handled like a rejected write.
+  return new Promise(resolve => resolve(CLOUD_SYNC.db.ref(CLOUD_PATH + '/' + key).set(value)))
+    .then(() => { console.debug('[SR Cloud] Pushed:', key); return true; })
+    .catch(err => {
+      console.error('[SR Cloud] Push failed for "' + key + '":', err);
+      toast('Couldn\'t publish to the website: ' + (err && err.message || err), 'error');
+      return false;
+    });
 }
 
 /*
@@ -622,14 +657,21 @@ function pushCloudData(key, value) {
 function applyRemoteData(payload) {
   if (!payload || typeof payload !== 'object') return;
   CLOUD_SYNC.applyingRemote = true;
-  CLOUD_DATA_KEYS.forEach(k => {
-    if (Object.prototype.hasOwnProperty.call(payload, k)) {
-      localStorage.setItem(k, JSON.stringify(payload[k]));
-    } else {
-      localStorage.removeItem(k);
-    }
-  });
-  CLOUD_SYNC.applyingRemote = false;
+  try {
+    CLOUD_DATA_KEYS.forEach(k => {
+      const json = Object.prototype.hasOwnProperty.call(payload, k) ? JSON.stringify(payload[k]) : null;
+      cloudMemory.set(k, json);
+      try {
+        if (json === null) localStorage.removeItem(k);
+        else localStorage.setItem(k, json);
+      } catch {
+        // Too large for this browser: drop the stale copy and keep the cloud one in memory.
+        try { localStorage.removeItem(k); } catch {}
+      }
+    });
+  } finally {
+    CLOUD_SYNC.applyingRemote = false;
+  }
   refreshActiveSection();
 }
 
@@ -646,6 +688,7 @@ function startCloudSync() {
   CLOUD_SYNC.enabled = true;
   let firstLoad = true;
   db.ref(CLOUD_PATH).on('value', snap => {
+    CLOUD_SYNC.ready = true;
     const payload = snap.val();
     if (!payload || typeof payload !== 'object') {
       if (firstLoad) {
@@ -661,6 +704,11 @@ function startCloudSync() {
     firstLoad = false;
   }, err => {
     console.error('[SR Cloud] Realtime listener error:', err);
+    // Without a live cloud copy, edits stay on this device rather than claim to publish.
+    CLOUD_SYNC.enabled = false;
+    CLOUD_SYNC.ready = false;
+    cloudMemory.clear();
+    toast('Cloud sync stopped: ' + (err && err.message || err) + '. Changes are saved on this device only.', 'error');
     loadLocalFallback();
   });
   console.info('[SR Cloud] Admin realtime sync active → path:', CLOUD_PATH);
@@ -682,41 +730,96 @@ let currentUser = null;
 
 function getCreds(){ return safeGet(KEYS.creds) || DEFAULT_CREDS; }
 
+/*
+ * Cloud sign-in: when Firebase is available the admin signs in with the
+ * Firebase email/password account that the database rules allow to write.
+ * Without Firebase, the local credential check above is kept (local-only mode).
+ */
+function getCloudAuth(){
+  if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') return null;
+  const cfg = window.SR_FIREBASE_CONFIG || {};
+  if (!(cfg.apiKey && cfg.projectId && cfg.databaseURL)) return null;
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    return firebase.auth();
+  } catch (err) {
+    console.error('[SR Cloud] Firebase auth init error:', err);
+    return null;
+  }
+}
+const CLOUD_AUTH = getCloudAuth();
+let appStarted = false;
+
+function showLoginError(msg){
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function loginErrorMessage(err){
+  const code = err && err.code || '';
+  if (['auth/invalid-credential','auth/wrong-password','auth/user-not-found','auth/invalid-login-credentials'].includes(code)) return 'Incorrect email or password.';
+  if (code === 'auth/invalid-email') return 'Enter the admin email address.';
+  if (code === 'auth/too-many-requests') return 'Too many attempts. Please wait a few minutes and try again.';
+  if (code === 'auth/network-request-failed') return 'No connection to Firebase. Check your internet connection.';
+  if (code === 'auth/operation-not-allowed') return 'Email/password sign-in is not enabled in the Firebase console.';
+  return 'Sign-in failed: ' + (err && err.message || err);
+}
+
+function showApp(name){
+  if (appStarted) return;
+  appStarted = true;
+  currentUser = name;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('sb-username').textContent = name;
+  document.getElementById('sb-av').textContent = name[0].toUpperCase();
+  // The email is the identity of a cloud account; usernames apply to local-only mode.
+  if (CLOUD_AUTH) document.getElementById('username-panel').style.display = 'none';
+  initApp();
+}
+
 function doLogin(){
   const u = document.getElementById('login-user').value.trim();
   const p = document.getElementById('login-pass').value;
+  document.getElementById('login-error').classList.remove('show');
+  if (CLOUD_AUTH) {
+    // onAuthStateChanged opens the app once Firebase accepts the account.
+    CLOUD_AUTH.signInWithEmailAndPassword(u, p).catch(err => showLoginError(loginErrorMessage(err)));
+    return;
+  }
   const creds = getCreds();
   if(u===creds.username && p===creds.password){
-    currentUser = u;
     sessionStorage.setItem('sr_auth','1');
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app').classList.add('visible');
-    document.getElementById('sb-username').textContent = u;
-    document.getElementById('sb-av').textContent = u[0].toUpperCase();
-    initApp();
+    showApp(u);
   } else {
-    document.getElementById('login-error').classList.add('show');
+    showLoginError('Incorrect username or password.');
   }
 }
 
 function doLogout(){
   sessionStorage.removeItem('sr_auth');
+  // Signing out reloads through onAuthStateChanged.
+  if (CLOUD_AUTH) { CLOUD_AUTH.signOut().catch(() => location.reload()); return; }
   location.reload();
 }
 
 /* Check session */
-if(sessionStorage.getItem('sr_auth')){
-  currentUser = getCreds().username;
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app').classList.add('visible');
-  document.getElementById('sb-username').textContent = currentUser;
-  document.getElementById('sb-av').textContent = currentUser[0].toUpperCase();
-  document.addEventListener('DOMContentLoaded', initApp);
-} else {
-  document.addEventListener('DOMContentLoaded', ()=>{
-    document.getElementById('login-user').focus();
+if (CLOUD_AUTH) {
+  document.getElementById('login-user-label').textContent = 'Email';
+  document.getElementById('login-user').placeholder = 'Enter admin email';
+  document.getElementById('login-user').setAttribute('inputmode', 'email');
+  // Firebase keeps the session across reloads.
+  CLOUD_AUTH.onAuthStateChanged(user => {
+    if (user) showApp(user.email || 'admin');
+    else if (appStarted) location.reload();
   });
+} else if(sessionStorage.getItem('sr_auth')){
+  document.addEventListener('DOMContentLoaded', () => showApp(getCreds().username));
 }
+document.addEventListener('DOMContentLoaded', ()=>{
+  if (!appStarted) document.getElementById('login-user').focus();
+});
 
 /* ════════════════════════════════════════════
    NAVIGATION
@@ -997,48 +1100,56 @@ async function submitUploads(){
   const albumId = document.getElementById('upload-album-select').value;
   if(!albumId){ toast('Please select an album first','error'); return; }
   if(!pendingUploads.length){ toast('No files selected','error'); return; }
+  if(CLOUD_SYNC.enabled && !CLOUD_SYNC.ready){ toast('Still loading the website data. Please try again in a moment.','warning'); return; }
+  if(!safeGet(KEYS.albums,[]).some(a=>a.id===albumId)){ toast('Album not found','error'); return; }
 
   const progressBar = document.getElementById('upload-progress-bar');
   const progressFill = document.getElementById('upload-progress-fill');
   progressBar.classList.add('show');
 
-  const albums = safeGet(KEYS.albums,[]);
-  const albumIdx = albums.findIndex(a=>a.id===albumId);
-  if(albumIdx<0){ toast('Album not found','error'); return; }
-
   const total = pendingUploads.length;
-  let done = 0;
+  const added = [];
 
   for(const file of pendingUploads){
     try{
       const compressed = await compressImage(file, 1200, 0.82);
-      const photo = {
+      added.push({
         id: 'ph'+Date.now()+Math.random().toString(36).slice(2),
         imageUrl: compressed,
         thumbnailUrl: await compressImage(file, 400, 0.7),
         caption: '',
-        sortOrder: (albums[albumIdx].photos||[]).length + done,
+        sortOrder: 0,
         isCover: false,
         width: 0, height: 0,
-      };
-      albums[albumIdx].photos = albums[albumIdx].photos||[];
-      albums[albumIdx].photos.push(photo);
-      // Set cover if first photo
-      if(albums[albumIdx].photos.length===1 && !albums[albumIdx].coverImage){
-        albums[albumIdx].coverImage = compressed;
-      }
-      done++;
-      progressFill.style.width = (done/total*100)+'%';
-      document.getElementById('upload-status').textContent = `Processing ${done}/${total}…`;
+      });
+      progressFill.style.width = (added.length/total*100)+'%';
+      document.getElementById('upload-status').textContent = `Processing ${added.length}/${total}…`;
     } catch(e){ console.error(e); }
   }
 
-  albums[albumIdx].photoCount = albums[albumIdx].photos.length;
-  if(!safeSet(KEYS.albums, albums)){
-    // localStorage quota exceeded
-    toast('Storage full. Consider removing old photos or using external image hosting.','error');
+  // Re-read after compressing, so changes that arrived meanwhile are kept.
+  const done = added.length;
+  const albums = safeGet(KEYS.albums,[]);
+  const album = albums.find(a=>a.id===albumId);
+  let published = null;
+  if(!album){
+    toast('Album not found','error');
   } else {
-    toast(`${done} photo(s) saved!`,'success');
+    album.photos = album.photos||[];
+    added.forEach(photo=>{ photo.sortOrder = album.photos.length; album.photos.push(photo); });
+    // Set cover if these are the album's first photos
+    if(done && album.photos.length===done && !album.coverImage) album.coverImage = added[0].imageUrl;
+    album.photoCount = album.photos.length;
+    const result = saveData(KEYS.albums, albums);
+    published = result.published;
+    if(!result.saved){
+      // localStorage quota exceeded
+      if(result.reason==='storage') toast('Storage full. Consider removing old photos or using external image hosting.','error');
+    } else if(!published){
+      toast(`${done} photo(s) saved on this device only. Cloud sync is off, so the website won't show them yet.`,'warning');
+    } else {
+      toast(`${done} photo(s) saved. Publishing to the website…`,'success');
+    }
   }
 
   pendingUploads = [];
@@ -1049,6 +1160,8 @@ async function submitUploads(){
   progressFill.style.width='0%';
   refreshPhotoGrid();
   buildDashboard();
+  // Only announce success once the website copy is actually saved.
+  if(published && await published) toast(`${done} photo(s) published to the website!`,'success');
 }
 
 /* Image compression helper */
@@ -1314,9 +1427,13 @@ function uploadLogo(e){
 
 function removeLogo(){
   localStorage.removeItem(KEYS.logo);
+  cloudMemory.delete(KEYS.logo);
   if (CLOUD_SYNC.enabled) {
     CLOUD_SYNC.db.ref(CLOUD_PATH + '/' + KEYS.logo).remove()
-      .catch(err => console.error('[SR Cloud] Logo remove failed:', err));
+      .catch(err => {
+        console.error('[SR Cloud] Logo remove failed:', err);
+        toast('Couldn\'t remove the logo from the website: ' + (err && err.message || err), 'error');
+      });
   }
   document.getElementById('logo-preview-img').style.display='none';
   document.getElementById('logo-placeholder-icon').style.display='block';
@@ -1366,10 +1483,14 @@ function confirmResetAll(){
   showConfirm('Reset All Data','This will delete all albums, photos, and custom packages. Default seed data will remain.',()=>{
     [KEYS.albums, KEYS.pkgs, KEYS.pkgCats, KEYS.albumCats, KEYS.logo].forEach(k => {
       localStorage.removeItem(k);
+      cloudMemory.delete(k);
       // Also remove from Firebase so the reset is visible to all visitors
       if (CLOUD_SYNC.enabled) {
         CLOUD_SYNC.db.ref(CLOUD_PATH + '/' + k).remove()
-          .catch(err => console.error('[SR Cloud] Reset remove failed for "' + k + '":', err));
+          .catch(err => {
+            console.error('[SR Cloud] Reset remove failed for "' + k + '":', err);
+            toast('Couldn\'t reset "' + k + '" on the website: ' + (err && err.message || err), 'error');
+          });
       }
     });
     toast('Data reset');
@@ -1384,10 +1505,22 @@ function changePassword(){
   const old = document.getElementById('set-old-pass').value;
   const n = document.getElementById('set-new-pass').value;
   const c = document.getElementById('set-confirm-pass').value;
-  const creds = getCreds();
-  if(old!==creds.password){ toast('Current password incorrect','error'); return; }
   if(n.length<8){ toast('Password must be at least 8 characters','error'); return; }
   if(n!==c){ toast('Passwords do not match','error'); return; }
+  if(CLOUD_AUTH && CLOUD_AUTH.currentUser){
+    // Firebase asks for the current password again before changing it.
+    const user = CLOUD_AUTH.currentUser;
+    user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email, old))
+      .then(() => user.updatePassword(n))
+      .then(() => {
+        ['set-old-pass','set-new-pass','set-confirm-pass'].forEach(id => document.getElementById(id).value='');
+        toast('Password updated!');
+      })
+      .catch(err => toast(['auth/wrong-password','auth/invalid-credential','auth/invalid-login-credentials'].includes(err && err.code) ? 'Current password incorrect' : 'Password not changed: ' + (err && err.message || err),'error'));
+    return;
+  }
+  const creds = getCreds();
+  if(old!==creds.password){ toast('Current password incorrect','error'); return; }
   safeSet(KEYS.creds,{...creds,password:n});
   document.getElementById('set-old-pass').value='';
   document.getElementById('set-new-pass').value='';
