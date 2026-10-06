@@ -137,26 +137,57 @@ const { createServer } = require("../scripts/serve.cjs");
       "light",
     );
 
-    // A regular visitor can skip by button or keyboard without waiting or flashing.
+    // The intro plays once per browser session: a reload in the same tab goes
+    // straight to the site, without the intro or its flash.
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Skip intro" }).click();
     assert.equal(
       await page.locator("#intro-screen").evaluate((e) => e.open),
       false,
+      "Intro does not replay within a session",
     );
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.keyboard.press("Escape");
     assert.equal(
-      await page.locator("#intro-screen").evaluate((e) => e.open),
+      await page.locator("html").getAttribute("data-intro"),
+      "complete",
+    );
+
+    // A new visit can skip by button or keyboard without waiting or flashing.
+    const visit = async () => {
+      const tab = await context.newPage();
+      await tab.route("https://www.gstatic.com/firebasejs/**", (route) =>
+        route.abort(),
+      );
+      tab.on("pageerror", (error) => errors.push(error.message));
+      await tab.goto(url, { waitUntil: "domcontentloaded" });
+      assert.equal(
+        await tab.locator("#intro-screen").evaluate((e) => e.open),
+        true,
+        "A new session sees the intro",
+      );
+      return tab;
+    };
+    const skipped = await visit();
+    await skipped.getByRole("button", { name: "Skip intro" }).click();
+    assert.equal(
+      await skipped.locator("#intro-screen").evaluate((e) => e.open),
       false,
     );
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.emulateMedia({ reducedMotion: "reduce" });
+    await skipped.close();
+    const escaped = await visit();
+    await escaped.keyboard.press("Escape");
     assert.equal(
-      await page.locator("#intro-screen").evaluate((e) => e.open),
+      await escaped.locator("#intro-screen").evaluate((e) => e.open),
       false,
     );
+    await escaped.close();
+    // Asking for reduced motion while the intro plays closes it at once.
+    const calmed = await visit();
+    await calmed.emulateMedia({ reducedMotion: "reduce" });
+    assert.equal(
+      await calmed.locator("#intro-screen").evaluate((e) => e.open),
+      false,
+    );
+    await calmed.close();
 
     const other = await browser.newContext({
       colorScheme: "dark",
