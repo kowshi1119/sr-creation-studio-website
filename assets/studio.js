@@ -2,31 +2,38 @@ const SERVICES = [
   {
     icon: "favorite",
     title: "Wedding Photography",
+    // Album categories whose real covers can preview this service.
+    categories: ["WEDDING"],
     desc: "Two photographers and at least two videographers on every package, with registration, Mehendi, reception, drone and outdoor shoots added as the packages grow.",
   },
   {
     icon: "celebration",
     title: "Puberty Ceremonies",
+    categories: ["CEREMONY"],
     desc: "Photo and video coverage of the ceremony, with Meganthi, cake cutting and outdoor shoots in the Signature and Complete packages. Drone coverage is free.",
   },
   {
     icon: "person",
     title: "Portrait & Model Shoots",
+    categories: ["MODEL", "PORTRAIT"],
     desc: "Portrait sessions for models, graduates and professionals, with gentle direction on posing so you feel at ease in front of the camera.",
   },
   {
     icon: "cake",
     title: "Birthday & Events",
+    categories: ["BIRTHDAY"],
     desc: "Birthdays and family celebrations, photographed as they happen, with the moments that matter planned with you beforehand.",
   },
   {
     icon: "video_camera_front",
     title: "Videography",
+    categories: [],
     desc: "Wedding films and event highlight reels from a dedicated video team, included in every wedding package.",
   },
   {
     icon: "photo_frame",
     title: "Framing & Albums",
+    categories: [],
     desc: "Glass and Duro frames from 6×4 to 24×36 inches, and printed albums of 35 to 75 sheets.",
   },
 ];
@@ -257,6 +264,7 @@ const categoryLabel = (category) =>
   })[category] || String(category || "Stories").replaceAll("_", " ");
 // Singular, sentence-case name for a single album's details.
 const categoryName = (category) => {
+  if (!category) return "Story";
   const name =
     {
       WEDDING: "Wedding",
@@ -310,6 +318,12 @@ function photo(src, alt, lazy = true) {
   return img;
 }
 let currentFilter = "ALL";
+let storyList = [];
+// The open reader keeps its own copy, so a background sync cannot reshuffle it.
+let readerStories = [];
+let storyIndex = 0;
+// Photograph sizes learned as reader images load, reused on later visits.
+const measuredSizes = new Map();
 let lightboxPhotos = [];
 let lightboxIndex = 0;
 let lightboxTitle = "";
@@ -374,38 +388,79 @@ function buildPortfolio() {
         "New stories are on their way. Contact us to explore more of our work.",
       ),
     );
-  filtered.forEach((album) => {
-    const button = element("button", "album-card");
-    button.type = "button";
-    button.setAttribute("aria-label", "Open album: " + album.title);
-    const thumb = element("div", "album-thumb");
-    thumb.append(
-      photo(
-        album.coverImage || albumPhotos(album)[0]?.imageUrl,
-        album.title + " — " + categoryLabel(album.category),
-      ),
-      element("span", "album-open", "↗"),
-    );
-    thumb.lastChild.setAttribute("aria-hidden", "true");
-    const info = element("div", "album-info"),
-      text = element("div");
-    text.append(
-      element(
-        "span",
-        "album-category",
-        categoryName(album.category) + ", " + (album.location || "Jaffna"),
-      ),
-      element("h3", "", album.title),
-    );
-    const count = albumPhotos(album).length;
-    info.append(
-      text,
-      element("span", "", count + " photograph" + (count === 1 ? "" : "s")),
-    );
-    button.append(thumb, info);
-    button.addEventListener("click", () => openAlbum(album));
-    grid.append(button);
-  });
+  storyList = filtered;
+  filtered.forEach((album, index) => grid.append(storyCard(album, index)));
+}
+// Real metadata only: empty fields are left out rather than shown as placeholders.
+function storyMeta(album) {
+  const date = new Date(String(album.eventDate || "") + "T00:00:00");
+  return [
+    categoryName(album.category),
+    typeof album.location === "string" ? album.location.trim() : "",
+    album.eventDate && !Number.isNaN(date.getTime())
+      ? date.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+      : "",
+  ].filter(Boolean);
+}
+function photoCount(count) {
+  return count ? count + " photograph" + (count === 1 ? "" : "s") : "";
+}
+// Width and height from the album data or, failing that, from an earlier load.
+function photoSize(item) {
+  const width = Number(item?.width),
+    height = Number(item?.height);
+  return width > 0 && height > 0
+    ? { width, height }
+    : measuredSizes.get(imageURL(item?.imageUrl)) || null;
+}
+function storyTitle(album) {
+  return typeof album.title === "string" && album.title.trim()
+    ? album.title.trim()
+    : categoryName(album.category) + " story";
+}
+// A safe cover: the admin's cover image when valid, else the first photograph.
+function albumCover(album) {
+  const photos = albumPhotos(album);
+  if (imageURL(album.coverImage)) {
+    const match = photos.find((p) => p.imageUrl === album.coverImage);
+    return {
+      url: album.coverImage,
+      size: photoSize(match || { imageUrl: album.coverImage }),
+    };
+  }
+  return photos[0]
+    ? { url: photos[0].imageUrl, size: photoSize(photos[0]) }
+    : { url: "", size: null };
+}
+function storyCard(album, index) {
+  const photos = albumPhotos(album);
+  const title = storyTitle(album);
+  const cover = albumCover(album);
+  const button = element(
+    "button",
+    "album-card" +
+      (cover.size && cover.size.width > cover.size.height
+        ? " is-landscape"
+        : ""),
+  );
+  button.type = "button";
+  button.setAttribute("aria-label", "Open story: " + title);
+  const thumb = element("div", "album-thumb");
+  thumb.append(photo(cover.url, title + " — " + categoryName(album.category)));
+  const info = element("div", "album-info");
+  const meta = element("p", "story-meta");
+  storyMeta(album).forEach((part) => meta.append(element("span", "", part)));
+  info.append(
+    element("span", "story-number", String(index + 1).padStart(2, "0")),
+    element("h3", "", title),
+    meta,
+  );
+  const count = photoCount(photos.length);
+  if (count) info.append(element("span", "story-count", count));
+  info.append(element("span", "story-cta", "View story"));
+  button.append(thumb, info);
+  button.addEventListener("click", () => openAlbum(album));
+  return button;
 }
 function openDialog(dialog) {
   if (!dialog.open) {
@@ -436,50 +491,128 @@ $$("dialog").forEach((dialog) => {
       document.body.style.overflow = "";
   });
 });
-function openAlbum(album) {
-  $("#album-modal-title").textContent = album.title;
-  $("#album-modal-meta").textContent = [
-    categoryName(album.category),
-    album.location,
-  ]
-    .filter(Boolean)
-    .join(", ");
-  $("#album-modal-desc").textContent = album.shortDescription || "";
+// Rows follow each photograph's shape: landscapes run wide, portraits pair up.
+function storyRows(photos, sizes) {
+  const rows = [];
+  const portrait = (i) => !sizes[i] || sizes[i].height >= sizes[i].width;
+  if (photos.length) rows.push({ type: "opening", items: [0] });
+  for (let i = 1; i < photos.length;) {
+    if (!portrait(i)) rows.push({ type: "wide", items: [i++] });
+    else if (i + 1 < photos.length && portrait(i + 1)) {
+      rows.push({ type: "pair", items: [i, i + 1] });
+      i += 2;
+    } else rows.push({ type: "single", items: [i++] });
+  }
+  return rows;
+}
+function renderStory(album, sizes) {
   const photos = albumPhotos(album);
   const grid = $("#album-modal-grid");
   grid.replaceChildren();
-  if (!photos.length)
+  if (!photos.length) {
     grid.append(
       element(
         "p",
-        "",
+        "album-empty",
         "Photographs will be added soon. Contact the studio for more details.",
       ),
     );
-  photos.forEach((p, index) => {
-    const button = element("button", "album-photo");
-    button.type = "button";
-    button.setAttribute(
-      "aria-label",
-      "View photograph " + (index + 1) + " of " + photos.length,
-    );
-    button.append(
-      photo(
+    return;
+  }
+  storyRows(photos, sizes).forEach((row) => {
+    const node = element("div", "story-row story-row--" + row.type);
+    row.items.forEach((index) => {
+      const p = photos[index];
+      const figure = element("figure", "story-frame");
+      const button = element("button", "album-photo");
+      button.type = "button";
+      button.setAttribute(
+        "aria-label",
+        "View photograph " + (index + 1) + " of " + photos.length,
+      );
+      const img = photo(
         p.imageUrl,
-        p.caption || album.title + " — photograph " + (index + 1),
-      ),
-    );
-    button.addEventListener("click", () => {
-      lightboxPhotos = photos;
-      lightboxIndex = index;
-      lightboxTitle = album.title;
-      updateLightbox();
-      openDialog($("#lightbox"));
+        p.caption || storyTitle(album) + " — photograph " + (index + 1),
+        index > 0,
+      );
+      if (sizes[index]) {
+        img.width = sizes[index].width;
+        img.height = sizes[index].height;
+      } else
+        img.addEventListener(
+          "load",
+          () => {
+            // Remembered for the next visit; the open sequence never jumps.
+            if (img.naturalWidth)
+              measuredSizes.set(imageURL(p.imageUrl), {
+                width: img.naturalWidth,
+                height: img.naturalHeight,
+              });
+          },
+          { once: true },
+        );
+      button.append(img);
+      button.addEventListener("click", () => {
+        lightboxPhotos = photos;
+        lightboxIndex = index;
+        lightboxTitle = storyTitle(album);
+        updateLightbox();
+        openDialog($("#lightbox"));
+      });
+      figure.append(button);
+      if (typeof p.caption === "string" && p.caption.trim())
+        figure.append(element("figcaption", "", p.caption.trim()));
+      node.append(figure);
     });
-    grid.append(button);
+    grid.append(node);
   });
+}
+function showStory(index) {
+  if (!readerStories.length) return;
+  storyIndex = (index + readerStories.length) % readerStories.length;
+  const album = readerStories[storyIndex];
+  $("#album-modal-title").textContent = storyTitle(album);
+  $("#album-modal-meta").textContent = storyMeta(album).join(", ");
+  $("#album-modal-desc").textContent =
+    typeof album.shortDescription === "string"
+      ? album.shortDescription.trim()
+      : "";
+  const photos = albumPhotos(album);
+  $("#album-modal-count").textContent = photoCount(photos.length);
+  renderStory(album, photos.map(photoSize));
+  const many = readerStories.length > 1;
+  $("#story-nav").hidden = !many;
+  // With two stories, "previous" and "next" would name the same one.
+  $("#story-prev").hidden = readerStories.length < 3;
+  if (many) {
+    const at = (step) =>
+      readerStories[
+        (storyIndex + step + readerStories.length) % readerStories.length
+      ];
+    $("#story-prev strong").textContent = storyTitle(at(-1));
+    $("#story-next strong").textContent = storyTitle(at(1));
+  }
+  $("#album-modal").scrollTop = 0;
+}
+function openAlbum(album) {
+  readerStories = storyList.includes(album) ? storyList.slice() : [album];
+  showStory(readerStories.indexOf(album));
   openDialog($("#album-modal"));
 }
+function stepStory(direction) {
+  if (readerStories.length < 2) return;
+  showStory(storyIndex + direction);
+  $("#album-modal-title").focus();
+}
+$("#story-prev").addEventListener("click", () => stepStory(-1));
+$("#story-next").addEventListener("click", () => stepStory(1));
+$("#story-inquire").addEventListener("click", () => {
+  const album = readerStories[storyIndex];
+  openInquiry(
+    categoryName(album?.category) + " story",
+    "Tell us about your plans and we’ll talk through coverage for a story like this.",
+  );
+});
 function updateLightbox() {
   if (!lightboxPhotos.length) return;
   const p = lightboxPhotos[lightboxIndex];
@@ -514,45 +647,179 @@ $("#lightbox").addEventListener("keydown", (event) => {
     navigatePhoto(-1);
   }
 });
+// One message format for every enquiry: only the fields a visitor filled in.
+const STUDIO_WHATSAPP = "https://wa.me/94761194985";
+const STUDIO_EMAIL = "srcreationstudiojaffna@gmail.com";
+function readableDate(value) {
+  const date = new Date(String(value || "") + "T00:00:00");
+  return value && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+}
+function inquiryText({ event, date, location, pkg, message }) {
+  const lines = [
+    "Hello SR Creation Studio,",
+    "",
+    "I would like to enquire about:",
+  ];
+  [
+    ["Event", event],
+    ["Date", readableDate(date)],
+    ["Location", location],
+    ["Package", pkg],
+    ["Message", message],
+  ].forEach(([label, value]) => {
+    const text = String(value || "").trim();
+    if (text) lines.push(label + ": " + text);
+  });
+  lines.push("", "Thank you.");
+  return lines.join("\n");
+}
+function inquiryLinks(details, whatsapp, email) {
+  const text = inquiryText(details);
+  whatsapp.href = STUDIO_WHATSAPP + "?text=" + encodeURIComponent(text);
+  email.href =
+    "mailto:" +
+    STUDIO_EMAIL +
+    "?subject=" +
+    encodeURIComponent((details.event || "Session") + " — Enquiry") +
+    "&body=" +
+    encodeURIComponent(text);
+}
+let inquirySubject = "";
+function updateDialogLinks() {
+  inquiryLinks(
+    {
+      event: inquirySubject,
+      date: $("#inq-dialog-date").value,
+      location: $("#inq-dialog-location").value,
+    },
+    $("#modal-wa"),
+    $("#modal-email"),
+  );
+}
 function openInquiry(
   title,
   description = "Tell us about your plans. We’ll help you choose the right coverage and make the day your own.",
 ) {
+  inquirySubject = title;
   $("#modal-title").textContent = title;
   $("#modal-desc").textContent = description;
-  $("#modal-wa").href =
-    "https://wa.me/94761194985?text=" +
-    encodeURIComponent(
-      "Hi SR Creation Studio, I'm interested in: " +
-        title +
-        ". Please share availability and details.",
-    );
-  $("#modal-email").href =
-    "mailto:srcreationstudiojaffna@gmail.com?subject=" +
-    encodeURIComponent(title + " — Inquiry") +
-    "&body=" +
-    encodeURIComponent(
-      "Hi SR Creation Studio,\n\nI would like to inquire about " +
-        title +
-        ".\nPreferred date:\nLocation:\n\nThank you!",
-    );
+  $("#inq-dialog-date").value = "";
+  $("#inq-dialog-location").value = "";
+  updateDialogLinks();
   openDialog($("#service-modal"));
 }
+["#inq-dialog-date", "#inq-dialog-location"].forEach((selector) =>
+  $(selector).addEventListener("input", updateDialogLinks),
+);
+// The contact form offers real services and the current package list.
+function packageOptions() {
+  return packageCategories().flatMap((category) => {
+    const data = packageData(category.id);
+    if (!data || !Array.isArray(data.items)) return [];
+    return data.items
+      .filter((p) => p && typeof p === "object")
+      .map((pkg) => {
+        const name =
+          category.id === "wedding" && pkg.badge ? pkg.badge : pkg.title;
+        return {
+          group: category.name,
+          label: name + (pkg.priceLKR ? " — LKR " + pkg.priceLKR : ""),
+        };
+      });
+  });
+}
+function buildInquiryForm() {
+  const event = $("#inq-event"),
+    pkg = $("#inq-package");
+  const chosenEvent = event.value,
+    chosenPackage = pkg.value;
+  const undecided = element("option", "", "Not decided yet");
+  undecided.value = "";
+  event.replaceChildren(
+    undecided,
+    ...[...SERVICES.map((s) => s.title), "Something else"].map((title) => {
+      const option = element("option", "", title);
+      option.value = title;
+      return option;
+    }),
+  );
+  const none = element("option", "", "Not sure yet");
+  none.value = "";
+  const groups = new Map();
+  packageOptions().forEach(({ group, label }) => {
+    if (!groups.has(group)) {
+      const node = element("optgroup");
+      node.label = group;
+      groups.set(group, node);
+    }
+    const option = element("option", "", label);
+    option.value = label;
+    groups.get(group).append(option);
+  });
+  pkg.replaceChildren(none, ...groups.values());
+  if ([...event.options].some((o) => o.value === chosenEvent))
+    event.value = chosenEvent;
+  if ([...pkg.options].some((o) => o.value === chosenPackage))
+    pkg.value = chosenPackage;
+  updateFormLinks();
+}
+function updateFormLinks() {
+  inquiryLinks(
+    {
+      event: $("#inq-event").value,
+      pkg: $("#inq-package").value,
+      date: $("#inq-date").value,
+      location: $("#inq-location").value,
+      message: $("#inq-message").value,
+    },
+    $("#inq-whatsapp"),
+    $("#inq-email"),
+  );
+}
+$("#inquiry-form").addEventListener("input", updateFormLinks);
+$("#inquiry-form").addEventListener("change", updateFormLinks);
+// The two links are the form's actions; Enter never submits it to the page.
+$("#inquiry-form").addEventListener("submit", (event) =>
+  event.preventDefault(),
+);
 $$("[data-inquiry]").forEach((button) =>
   button.addEventListener("click", () => openInquiry(button.dataset.inquiry)),
 );
+// The studio index: one numbered row per service, previewed by a real album cover.
+function servicePreview(service, albums) {
+  const album = albums.find(
+    (a) => service.categories.includes(a.category) && albumCover(a).url,
+  );
+  if (!album) return null;
+  const preview = element("span", "service-preview");
+  preview.setAttribute("aria-hidden", "true");
+  preview.append(photo(albumCover(album).url, ""));
+  return preview;
+}
 function buildServices() {
+  const albums = getAlbums();
   $("#services-grid").replaceChildren(
     ...SERVICES.map((service, index) => {
       const button = element("button", "service-card");
       button.type = "button";
-      button.append(
-        element("span", "service-number", String(index + 1).padStart(2, "0")),
-        element("span", "service-arrow", "↗"),
-        element("h3", "", service.title),
+      const text = element("span", "service-text");
+      text.append(
         element("p", "", service.desc),
         element("span", "service-link", "Check availability"),
       );
+      button.append(
+        element("span", "service-number", String(index + 1).padStart(2, "0")),
+        element("h3", "", service.title),
+        text,
+      );
+      const preview = servicePreview(service, albums);
+      if (preview) button.append(preview);
       button.addEventListener("click", () =>
         openInquiry(service.title, service.desc),
       );
@@ -736,7 +1003,9 @@ function loadLogo() {
 function refreshPublicDataViews() {
   loadLogo();
   buildPortfolio();
+  buildServices();
   buildPackages();
+  buildInquiryForm();
 }
 function applyRemoteData(payload) {
   if (!payload || typeof payload !== "object") return;
@@ -990,6 +1259,5 @@ $("#chat-form").addEventListener("submit", (event) => {
   },
 );
 $("#year").textContent = new Date().getFullYear();
-buildServices();
 refreshPublicDataViews();
 startCloudSync();

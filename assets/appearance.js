@@ -91,8 +91,20 @@
       finishIntro();
     });
     intro.addEventListener("close", finishIntro);
+    // The intro plays once per browser session; reloads go straight to the site.
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem("sr_intro_seen") === "1";
+      sessionStorage.setItem("sr_intro_seen", "1");
+    } catch {
+      /* Without session storage the intro simply plays, as it always has. */
+    }
     // Visitors requesting less motion get the website immediately, without a flash.
-    if (reducedMotion.matches || typeof intro.showModal !== "function") {
+    if (
+      seen ||
+      reducedMotion.matches ||
+      typeof intro.showModal !== "function"
+    ) {
       finishIntro();
       return;
     }

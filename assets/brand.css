@@ -13,8 +13,6 @@
   --on-dark: #fafafa;
   --muted-on-dark: #bdbdc5;
   --accent-on-dark: #ff9690;
-  --seal: #fffffff0;
-  --orbit: #d8d8df80;
   --chat-surface: #efeff2;
   color-scheme: light;
 }
@@ -28,8 +26,6 @@
   --soft: #19191d;
   --card: #202025;
   --header: #111113ef;
-  --seal: #19191df0;
-  --orbit: #51515b66;
   --chat-surface: #29292f;
   color-scheme: dark;
 }
@@ -53,32 +49,6 @@
 .skip-link {
   color: var(--paper);
 }
-.status-dot {
-  box-shadow: 0 0 0 4px #df302814;
-}
-.signature-line {
-  background: var(--line);
-}
-.photo-frame {
-  background: #fff;
-  box-shadow:
-    0 28px 38px -20px #0008,
-    0 2px 3px #0003;
-}
-.photo-frame figcaption {
-  color: #525259;
-}
-.art-seal {
-  background: var(--seal);
-  border-color: var(--accent);
-}
-.orbit {
-  border-color: var(--orbit);
-}
-.art-coordinate {
-  color: var(--muted);
-}
-.discipline-strip,
 .packages-section {
   background: var(--soft);
 }
@@ -100,16 +70,13 @@
 .services-section,
 .contact-section,
 .pkg-card.featured,
-.frame-table th,
 .chat-message.user {
   color: var(--on-dark);
 }
 .services-section .eyebrow,
-.contact-intro h2 > span,
 .contact-intro > .eyebrow,
 .contact-details .eyebrow,
 .service-link,
-.service-arrow,
 .pkg-badge,
 .pkg-card.featured .pkg-features li:before {
   color: var(--accent-on-dark);
@@ -129,8 +96,7 @@
 .chat-message a {
   border-color: var(--line);
 }
-.pkg-card,
-.frame-table {
+.pkg-card {
   background: var(--card);
 }
 .pkg-card.featured {

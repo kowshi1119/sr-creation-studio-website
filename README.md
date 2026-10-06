@@ -6,16 +6,20 @@ An editorial photography and film website for SR Creation Studio, Jaffna, Sri La
 
 - Responsive red, black, and white branding with the supplied studio logo and existing photography.
 - Light and dark themes, a header toggle, saved visitor preference, and automatic system-theme detection.
-- A 3.5-second CSS 3D camera intro: shutter press, aperture closure, and one brief flash. Skip or press Escape to enter immediately; reduced-motion visitors bypass it.
-- Layered CSS 3D photo frames, gentle floating motion, pointer perspective and gallery depth.
-- A motion layer: masked headline reveal as the intro irises open, per-layer hero parallax with a moving light sheen, a scroll-driven hero hand-off, a seamless discipline marquee, curtain reveals and 3D tilt with glare on albums, a gliding filter pill, spotlight service cards, a rotating studio stamp, a living border on the featured package, letter-by-letter footer wordmark, dialog and assistant entrances, a reading progress line, a header that steps aside while reading, magnetic calls to action, a cursor ring that invites visitors to view albums, film grain, and a circular theme-change transition.
-- A motion pause button, reduced-motion support and animation suspension outside the hero.
+- A 3.5-second CSS 3D camera intro, played once per browser session: shutter press, aperture closure, one brief flash and an iris onto the page. Skip or press Escape to enter immediately; reduced-motion visitors bypass it.
+- An editorial hero that names the studio, the work and the place, beside a borderless spread of real photographs on independent 3D depth planes that follow the pointer.
+- Selected Stories: each album is a numbered spread with its title and only the real details it has (category, location, month and year, photograph count). Empty fields are left out.
+- A full-screen story reader that sequences each album by photograph shape (landscapes run wide, portraits pair up), opens the existing lightbox, moves to the previous or next story, and ends with an enquiry.
+- A studio index of services as numbered rows; on a mouse or trackpad, rows preview a real album cover from the matching category. Descriptions never depend on hover.
+- An editorial studio spread, a process that holds its heading still on wide screens, and packages set as a comparable ledger on wide screens and cards on smaller ones.
+- A structured enquiry form that composes a WhatsApp message or email from only the fields a visitor fills in. Nothing is sent or stored by the site.
+- Restrained motion: headline and photo entrance, scroll hand-off, one curtain reveal for photographs, filter pill, tab rule, dialog entrances, header and progress line, film grain, a "View story" label over covers and a circular theme change. Motion pause, reduced-motion support and suspension outside the hero.
 - Album category filters, keyboard-accessible galleries and native modal dialogs with focus restoration.
 - A single type scale (size tokens in `assets/studio.css`): Cormorant Garamond for headings, prices and section labels, DM Sans for reading text, a 12px minimum for visible text, aligned figures for prices, and arrows only on buttons and links that leave the site.
 - Existing wedding, ceremony and framing prices, with WhatsApp and email inquiries.
 - An automated assistant that reads current package overrides.
 - Read-only Firebase content sync with a local cache and bundled portfolio fallback.
-- Contact details, social links, metadata and an SVG favicon.
+- Contact details, social links, metadata, structured data built only from verified studio details, and an SVG favicon.
 
 ## Run locally
 
@@ -37,7 +41,7 @@ npm test
 
 The tests use installed Chrome or Edge automatically on Windows. Elsewhere they use Playwright Chromium. Set `CHROME_PATH` to select another Chrome executable.
 
-Browser tests cover five viewport widths, photo loading, filters, keyboard galleries, nested modal behavior and focus, pricing tabs, inquiry links, the assistant, storage failures, data rendering, mobile navigation, 3D motion controls, reduced motion, no-JavaScript fallback and automated WCAG A/AA accessibility checks. Firebase requests are blocked during regression tests so production content is never modified. Set `SCREENSHOT_DIR` to save review screenshots.
+Browser tests cover up to eleven viewport widths, the stories and story reader, the studio index, the enquiry message format, structured data, image loading priorities, layout stability, photo loading, filters, keyboard galleries, nested modal behavior and focus, pricing tabs, inquiry links, the assistant, storage failures, data rendering, mobile navigation, 3D motion controls, reduced motion, no-JavaScript fallback and automated WCAG A/AA accessibility checks. Firebase requests are blocked during regression tests so production content is never modified. Set `SCREENSHOT_DIR` to save review screenshots.
 
 ## Files
 
@@ -46,17 +50,18 @@ Browser tests cover five viewport widths, photo loading, filters, keyboard galle
 - `assets/brand.css`: logo palette, light/dark theme tokens and camera intro styling.
 - `assets/appearance.js`: early theme initialization, preference storage, theme transition and timed intro.
 - `assets/motion.css`: the motion and depth layer, loaded after `brand.css`; hidden “before” states apply only when motion is allowed.
-- `assets/motion.js`: pointer depth, scroll reveals, marquee, filter pill and cursor ring; a progressive enhancement the page does not depend on.
+- `assets/motion.js`: hero pointer depth, header and progress line, reveals, filter pill and the "View story" label; a progressive enhancement the page does not depend on.
 - `assets/studio-logo.jpg`: supplied studio logo, used as the default header mark and intro branding.
 - `assets/studio.js`: services, default pricing, interaction and read-only Firebase integration.
-- `assets/portfolio.js`: fallback albums extracted from the repository’s existing studio backup.
+- `assets/portfolio.js`: fallback albums extracted from the repository’s existing studio backup, with each photograph's real width and height.
 - `assets/photos/`: existing studio photographs stored as local WebP assets.
 - `assets/favicon.svg`: studio monogram.
 - `admin.html`: existing administration interface.
 - `scripts/serve.cjs`: local preview server.
 - `tests/smoke.cjs`: browser regression checks.
 - `tests/appearance.cjs`: intro timing, skip controls, theme persistence, reduced motion, storage fallback, responsive layouts and contrast in both themes.
-- `tests/typography.cjs`: minimum text sizes at four widths and in every overlay, reading sizes, proportional heading tracking, serif headings and prices, aligned figures, label style and key copy.
+- `tests/typography.cjs`: minimum text sizes at five widths and in every overlay, reading sizes, proportional heading tracking, serif headings and prices, aligned figures, label style and key copy.
+- `tests/experience.cjs`: hero hierarchy and image priority, data-driven stories, story sequencing and navigation, studio index previews, enquiry messages, structured data, layout stability, reduced motion and eleven widths in both themes.
 
 ## Content updates
 
@@ -65,6 +70,8 @@ Use `admin.html` to manage albums, logo and package overrides. The public site r
 `sr_albums`, `sr_logo`, `sr_packages`, `sr_pkg_categories`, `sr_album_categories`.
 
 An admin album collection replaces the bundled fallback; an explicitly empty collection stays empty. If no saved collection exists, the bundled real studio albums appear. Remote content still renders when browser storage is unavailable or full.
+
+Story covers use each album's `coverImage`; choose covers without a text banner at the top for the cleanest crop. Photographs with a recorded `width` and `height` are sequenced immediately in the story reader; others are measured once they load. The studio index previews the cover of the first published album in the matching category, so previews appear as albums are added.
 
 The hero photographs are curated independently in `index.html`. Edit those image paths to change the homepage composition. Change default services and prices in `assets/studio.js`; contact links also appear in `index.html`.
 
@@ -84,10 +91,10 @@ The bundled wedding and graduation photographs come from `sr-studio-backup-2026-
 
 ## Intro and theme settings
 
-The intro plays on each full page load and ends after 3.5 seconds, independently of Firebase or image downloads. Its duration is set in `assets/appearance.js` and matching animation timings in `assets/brand.css`. It is not a loading-percentage indicator. No audio autoplays.
+The intro plays once per browser session (stored under `sr_intro_seen` in session storage) and ends after 3.5 seconds, independently of Firebase or image downloads. Its duration is set in `assets/appearance.js` and matching animation timings in `assets/brand.css`. It is not a loading-percentage indicator. No audio autoplays.
 
 The visitor’s theme choice is stored under `sr_theme`; without a saved choice the site follows the operating-system color scheme. Theme initialization runs before stylesheet rendering to avoid displaying the wrong theme first. If JavaScript is disabled, the intro stays closed and the core page remains accessible.
 
 ## Motion
 
-Every animation in `assets/motion.css` sits behind `prefers-reduced-motion: no-preference` or the existing `motion-enabled` class, so visitors who ask for less motion get a still, fully visible page. The hero “Pause motion” button also pauses the orbits, marquee, featured-package border, cursor ring and pointer parallax. Pointer effects only run for a mouse or trackpad. Scroll-driven effects use CSS scroll timelines where the browser supports them and are simply skipped elsewhere. Only `transform`, `opacity` and `clip-path` are animated, and no animation library or WebGL is used.
+Every animation in `assets/motion.css` sits behind `prefers-reduced-motion: no-preference` or the existing `motion-enabled` class, so visitors who ask for less motion get a still, fully visible page. The hero “Pause motion” button also stops the pointer depth and the "View story" label. Pointer effects only run for a mouse or trackpad. Scroll-driven effects use CSS scroll timelines where the browser supports them and are simply skipped elsewhere. Only `transform`, `opacity` and `clip-path` are animated, and no animation library or WebGL is used.
