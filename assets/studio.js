@@ -343,7 +343,11 @@ function getAlbums() {
 const photoCache = new Map();
 function cachedPhotos(album) {
   const entry = album.cloudPhotos ? photoCache.get(String(album.id)) : null;
-  return entry && entry.count === Number(album.photoCount) ? entry.list : null;
+  // A fetched list is used even if it differs from photoCount (for example
+  // mid-publish); it is fetched again only when photoCount changes.
+  return entry && entry.fetchedFor === Number(album.photoCount)
+    ? entry.list
+    : null;
 }
 function needsPhotos(album) {
   return Boolean(
@@ -1052,6 +1056,9 @@ function applyRemoteData(payload) {
       ? payload[key]
       : null;
     remoteCache.set(key, value);
+    // Albums saved in this browser by the admin share this key; the public
+    // site never overwrites or removes them (cloud albums arrive without photos).
+    if (key === "sr_albums") return;
     try {
       if (value === null) localStorage.removeItem(key);
       else localStorage.setItem(key, JSON.stringify(value));
@@ -1096,7 +1103,7 @@ function loadStoryPhotos(album) {
         const list = [];
         snapshot.forEach((doc) => list.push({ ...doc.data(), id: doc.id }));
         list.sort(bySortOrder);
-        photoCache.set(id, { count: list.length, list });
+        photoCache.set(id, { fetchedFor: Number(album.photoCount), list });
       })
       .finally(() => photoRequests.delete(id));
     photoRequests.set(id, request);
@@ -1121,8 +1128,10 @@ async function startCloudSync() {
     const publish = () => {
       if (!cloud.settings || !cloud.albums) return;
       const payload = {};
-      // An empty cloud keeps the bundled portfolio.
-      if (cloud.albums.length) payload.sr_albums = cloud.albums;
+      // An empty cloud keeps the bundled portfolio until the admin manages
+      // the albums; after that, an empty list stays empty.
+      if (cloud.albums.length || cloud.settings.albumsManaged === true)
+        payload.sr_albums = cloud.albums;
       Object.entries({
         sr_logo: "logo",
         sr_packages: "packages",

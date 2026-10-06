@@ -285,7 +285,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
           <input class="form-input" id="album-search" type="search" placeholder="Search albums…" style="width:240px;" oninput="renderAdminAlbums()"/>
           <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-            <button class="btn btn-outline" id="import-site-albums" style="display:none;" onclick="importWebsiteAlbums()"><span class="material-symbols-outlined">cloud_upload</span> Import website albums</button>
+            <button class="btn btn-outline" id="import-site-albums" style="display:none;" onclick="importSavedAlbums()"><span class="material-symbols-outlined">cloud_upload</span> Import saved albums</button>
             <button class="btn btn-red" onclick="openAddAlbumModal()"><span class="material-symbols-outlined">add</span> New Album</button>
           </div>
         </div>
@@ -560,8 +560,8 @@ function saveData(k, v) {
   const json = JSON.stringify(v);
   try {
     // In cloud mode the album photos live in Firestore only; they can outgrow localStorage.
-    if (cloud && k === KEYS.albums) localStorage.removeItem(k);
-    else localStorage.setItem(k, json);
+    // Any album copy already saved on this device is left untouched, so it can still be imported.
+    if (!(cloud && k === KEYS.albums)) localStorage.setItem(k, json);
   } catch(e) {
     if (!cloud) {
       toast('Storage error: ' + e.message, 'error');
@@ -616,6 +616,8 @@ const cloudState = {
   photos: new Map(),         // albumId → Map(photoId → photo document data)
   photoListeners: new Map(), // albumId → unsubscribe
   albumsLoaded: false,
+  listed: new Set(),         // album ids included in the admin's current list
+  seededSettings: false,     // settings from this device were offered to an empty cloud
 };
 
 // JSON with sorted keys, so data read back from Firestore compares equal to what was written.
@@ -691,14 +693,17 @@ function albumWrites(albums) {
       const pid = String(p.id || ('ph' + id + '-' + order)).replace(/\//g, '-');
       seen.add(pid);
       const { id: _pid, thumbnailUrl: _thumb, albumId: _aid, albumTitle: _title, ...fields } = p;
-      const data = { ...fields, sortOrder: order };
+      // A stored order is kept, so deleting a photo does not rewrite the ones after it.
+      const data = { ...fields, sortOrder: Number.isFinite(Number(p.sortOrder)) && p.sortOrder !== '' ? Number(p.sortOrder) : order };
       if (canon(known.get(pid)) !== canon(data))
         writes.push({ ref: col.doc(id).collection('photos').doc(pid), data, size: canon(data).length });
     });
     known.forEach((_, pid) => { if (!seen.has(pid)) writes.push({ ref: col.doc(id).collection('photos').doc(pid), remove: true, size: 64 }); });
   });
   cloudState.albums.forEach((_, id) => {
-    if (keep.has(id)) return;
+    // Only albums this list has shown can be removed by it; one created
+    // elsewhere that has not finished loading here is never deleted.
+    if (keep.has(id) || !cloudState.listed.has(id)) return;
     (cloudState.photos.get(id) || new Map()).forEach((_, pid) =>
       writes.push({ ref: col.doc(id).collection('photos').doc(pid), remove: true, size: 64 }));
     writes.push({ ref: col.doc(id), remove: true, size: 64 });
@@ -731,7 +736,11 @@ function pushCloudData(key, value) {
   // A synchronous SDK error (e.g. an invalid value) is handled like a rejected write.
   return new Promise(resolve => resolve(
     key === KEYS.albums
-      ? commitWrites(albumWrites(value))
+      ? commitWrites(albumWrites(value)).then(() => {
+          // From now on the website shows exactly these albums, even if the list is empty.
+          if (!cloudState.settings || cloudState.settings.albumsManaged !== true)
+            return CLOUD_SYNC.db.collection('site').doc('settings').set({ albumsManaged: true }, { merge: true });
+        })
       : CLOUD_SYNC.db.collection('site').doc('settings').set(
           { [SITE_FIELDS[key]]: value === null || value === undefined ? firebase.firestore.FieldValue.delete() : value },
           { merge: true })))
@@ -756,8 +765,10 @@ function applyRemoteData(payload) {
       const json = Object.prototype.hasOwnProperty.call(payload, k) ? JSON.stringify(payload[k]) : null;
       cloudMemory.set(k, json);
       try {
-        if (json === null || k === KEYS.albums) localStorage.removeItem(k);
-        else localStorage.setItem(k, json);
+        // Albums saved on this device are never deleted here; they can still be imported.
+        if (k === KEYS.albums) return;
+        // A setting missing from the cloud keeps its local copy (it may be seeded up).
+        if (json !== null) localStorage.setItem(k, json);
       } catch {
         // Too large for this browser: drop the stale copy and keep the cloud one in memory.
         try { localStorage.removeItem(k); } catch {}
@@ -777,12 +788,20 @@ function publishCloudState() {
     ...meta, id,
     photos: [...(cloudState.photos.get(id) || new Map())].map(([pid, p]) => ({ ...p, id: pid })).sort(bySortOrder),
   })).sort(bySortOrder);
+  cloudState.listed = new Set(albums.map(a => a.id));
   const payload = { sr_albums: albums };
+  const seeds = [];
   Object.entries(SITE_FIELDS).forEach(([key, field]) => {
-    if (cloudState.settings[field] !== undefined) payload[key] = cloudState.settings[field];
+    if (cloudState.settings[field] !== undefined) { payload[key] = cloudState.settings[field]; return; }
+    // Settings saved on this device before the cloud had any are kept and copied up once.
+    let local = null;
+    try { local = JSON.parse(localStorage.getItem(key) || 'null'); } catch {}
+    if (local !== null && !cloudState.seededSettings) { payload[key] = local; seeds.push([key, local]); }
   });
+  cloudState.seededSettings = true;
   CLOUD_SYNC.ready = true;
   applyRemoteData(payload);
+  seeds.forEach(([key, value]) => pushCloudData(key, value));
 }
 
 /*
@@ -797,9 +816,13 @@ function startCloudSync() {
   CLOUD_SYNC.db = db;
   CLOUD_SYNC.enabled = true;
   let failed = false;
+  const stops = [];
   const fail = err => {
     if (failed) return;
     failed = true;
+    stops.forEach(stop => { try { stop(); } catch {} });
+    cloudState.photoListeners.forEach(stop => { try { stop(); } catch {} });
+    cloudState.photoListeners.clear();
     console.error('[SR Cloud] Realtime listener error:', err);
     // Without a live cloud copy, edits stay on this device rather than claim to publish.
     CLOUD_SYNC.enabled = false;
@@ -808,11 +831,11 @@ function startCloudSync() {
     toast('Cloud sync stopped: ' + (err && err.message || err) + '. Changes are saved on this device only.', 'error');
     loadLocalFallback();
   };
-  db.collection('site').doc('settings').onSnapshot(doc => {
+  stops.push(db.collection('site').doc('settings').onSnapshot(doc => {
     cloudState.settings = doc.exists ? (doc.data() || {}) : {};
     publishCloudState();
-  }, fail);
-  db.collection('albums').onSnapshot(snap => {
+  }, fail));
+  stops.push(db.collection('albums').onSnapshot(snap => {
     const ids = new Set();
     snap.forEach(doc => {
       ids.add(doc.id);
@@ -836,21 +859,57 @@ function startCloudSync() {
     });
     cloudState.albumsLoaded = true;
     publishCloudState();
-  }, fail);
+  }, fail));
   console.info('[SR Cloud] Admin realtime sync active (Firestore).');
 }
 
 /*
- * importWebsiteAlbums()
- * One-time copy of the albums built into the website (assets/portfolio.js)
- * into Firestore, so every album can then be managed here.
+ * savedAlbumsToImport()
+ * The albums that can be copied into an empty cloud: those the website has
+ * built in (assets/portfolio.js) plus any saved in this browser by the admin
+ * before cloud sync worked. A device album replaces a built-in one with the same id.
  */
-function importWebsiteAlbums() {
-  const bundled = Array.isArray(window.SR_PORTFOLIO) ? JSON.parse(JSON.stringify(window.SR_PORTFOLIO)) : [];
-  if (!bundled.length) { toast('No website albums to import.', 'error'); return; }
+const MAX_IMPORT_PHOTO_CHARS = 900000;
+function savedAlbumsToImport() {
+  const byId = new Map();
+  const add = list => (Array.isArray(list) ? list : []).forEach((a, i) => {
+    if (a && typeof a === 'object') byId.set(String(a.id || a.slug || a.title || ('device-' + i)), { ...a });
+  });
+  add(window.SR_PORTFOLIO ? JSON.parse(JSON.stringify(window.SR_PORTFOLIO)) : []);
+  try { add(JSON.parse(localStorage.getItem(KEYS.albums) || 'null')); } catch {}
+  let skipped = 0;
+  const albums = [...byId].map(([id, album]) => {
+    const photos = (Array.isArray(album.photos) ? album.photos : [])
+      .map(p => typeof p === 'string' ? { imageUrl: p } : p)
+      .filter(p => {
+        const ok = p && typeof p.imageUrl === 'string' && p.imageUrl && p.imageUrl.length <= MAX_IMPORT_PHOTO_CHARS;
+        if (p && !ok) skipped++;
+        return ok;
+      });
+    // A cover too large for a document is replaced by the first photograph.
+    const cover = typeof album.coverImage === 'string' && album.coverImage.length <= MAX_IMPORT_PHOTO_CHARS
+      ? album.coverImage : (photos[0] ? photos[0].imageUrl : '');
+    return { ...album, id, coverImage: cover, photos, photoCount: photos.length };
+  });
+  return { albums, skipped };
+}
+
+/*
+ * importSavedAlbums()
+ * One-time copy of the built-in and device-saved albums into an empty Firestore,
+ * so every album can then be managed here.
+ */
+function importSavedAlbums() {
   if (safeGet(KEYS.albums, []).length) { toast('Albums already exist in the cloud.', 'warning'); return; }
-  const { saved, published } = saveData(KEYS.albums, bundled);
-  if (saved && published) published.then(ok => { if (ok) toast(`${bundled.length} website album(s) imported. You can now edit them here.`, 'success'); });
+  const { albums, skipped } = savedAlbumsToImport();
+  if (!albums.length) { toast('No saved albums to import.', 'error'); return; }
+  const { saved, published } = saveData(KEYS.albums, albums);
+  if (!(saved && published)) return;
+  const photos = albums.reduce((sum, a) => sum + a.photos.length, 0);
+  published.then(ok => {
+    if (ok) toast(`${albums.length} album(s) with ${photos} photo(s) imported to the website.` +
+      (skipped ? ` ${skipped} photo(s) were too large and were skipped.` : ''), 'success');
+  });
 }
 
 function refreshActiveSection() {
@@ -1093,9 +1152,9 @@ function saveAlbum(){
 
 function renderAdminAlbums(){
   const albums = safeGet(KEYS.albums,[]);
-  // Offered once: the cloud is empty and the website still shows its built-in albums.
+  // Offered while the cloud has no albums but the website or this browser has some to copy.
   document.getElementById('import-site-albums').style.display =
-    CLOUD_SYNC.ready && !albums.length && Array.isArray(window.SR_PORTFOLIO) && window.SR_PORTFOLIO.length ? '' : 'none';
+    CLOUD_SYNC.ready && !albums.length && savedAlbumsToImport().albums.length ? '' : 'none';
   const q = (document.getElementById('album-search')?.value||'').toLowerCase();
   const filtered = albums.filter(a=>!q||a.title.toLowerCase().includes(q)||a.category.toLowerCase().includes(q));
   const grid = document.getElementById('admin-album-grid');
@@ -1280,7 +1339,8 @@ async function submitUploads(){
     toast('Album not found','error');
   } else {
     album.photos = album.photos||[];
-    added.forEach(photo=>{ photo.sortOrder = album.photos.length; album.photos.push(photo); });
+    let nextOrder = album.photos.reduce((max, p)=>Math.max(max, Number(p.sortOrder)||0), album.photos.length ? 0 : -1) + 1;
+    added.forEach(photo=>{ photo.sortOrder = nextOrder++; album.photos.push(photo); });
     // Set cover if these are the album's first photos
     if(done && album.photos.length===done && !album.coverImage) album.coverImage = cover;
     album.photoCount = album.photos.length;

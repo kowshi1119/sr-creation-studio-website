@@ -71,7 +71,7 @@ Use `admin.html` to manage albums, photos, logo and package overrides. Content l
 - `albums/{albumId}`: title, category, date, location, description, cover image, `photoCount` and `sortOrder`.
 - `albums/{albumId}/photos/{photoId}`: `imageUrl`, `caption`, `sortOrder`, `width`, `height`; one photograph per document.
 
-The public site reads the albums without their photographs and loads a story’s photographs when it is opened. While Firestore has no albums, or cannot be reached, the bundled studio albums in `assets/portfolio.js` appear. When the cloud is empty, the admin offers **Import website albums**, which copies those bundled albums into Firestore once so they can be edited there. Remote content still renders when browser storage is unavailable or full.
+The public site reads the albums without their photographs and loads a story’s photographs when it is opened. While Firestore has no albums, or cannot be reached, the bundled studio albums in `assets/portfolio.js` appear. When the cloud is empty, the admin offers **Import saved albums**, which copies those bundled albums, and any albums saved earlier in that browser, into Firestore once so they can be edited there. Remote content still renders when browser storage is unavailable or full.
 
 Story covers use each album's `coverImage`; choose covers without a text banner at the top for the cleanest crop. Photographs with a recorded `width` and `height` are sequenced immediately in the story reader; others are measured once they load. The studio index previews the cover of the first published album in the matching category, so previews appear as albums are added.
 
@@ -87,7 +87,7 @@ The public page never writes to Firebase. When Firebase is available, `admin.htm
 2. **Authentication → Get started → Sign-in method:** enable **Email/Password**.
 3. **Authentication → Users → Add user:** enter the studio’s email and a strong password, then copy the new user’s **User UID**.
 4. **Firestore → Rules:** publish `firestore.rules` with `REPLACE_WITH_ADMIN_UID` replaced by that UID (or run `firebase deploy --only firestore:rules` after editing it). Everyone can read the content; only the admin account can write.
-5. Open `admin.html`, sign in with that email and password, and choose **Import website albums** or upload. The admin confirms “published to the website!”, or shows the Firestore error if a write is refused.
+5. Open `admin.html`, sign in with that email and password, and choose **Import saved albums** (copies the built-in albums and any saved in that browser) or upload. The admin confirms “published to the website!”, or shows the Firestore error if a write is refused.
 
 The password can be changed under Settings in the admin, or reset from the Firebase console.
 

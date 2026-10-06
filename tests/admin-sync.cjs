@@ -482,6 +482,62 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       await context.close();
     }
 
+    // 8. Once the admin manages the albums, an empty list stays empty on the
+    //    website instead of bringing back the built-in albums; the public site
+    //    never touches albums saved in that browser; an album that has not
+    //    finished loading in this admin is never deleted by an unrelated save.
+    {
+      cloud = {};
+      const { context, page } = await device();
+      await openAdmin(page);
+      const id = await createAlbum(page, "Only album");
+      await waitForCloud(
+        () => cloud["site/settings"]?.albumsManaged === true,
+        "The first published album marks the albums as managed",
+      );
+      await page.evaluate(() => {
+        // An album created elsewhere whose photographs have not arrived yet.
+        cloudState.albums.set("ghost", { title: "Ghost", sortOrder: 9 });
+      });
+      const before = commits.length;
+      await page.evaluate((id) => {
+        openAddAlbumModal(id);
+        document.getElementById("af-title").value = "Only album, renamed";
+        saveAlbum();
+      }, id);
+      await waitForCloud(() => cloudAlbum("Only album, renamed"), "Rename");
+      assert.deepEqual(
+        commits.slice(before),
+        [["set albums/" + id]],
+        "A stale list never deletes albums it has not shown",
+      );
+      await page.evaluate(() => cloudState.albums.delete("ghost"));
+      await page.evaluate((id) => confirmDeleteAlbum(id), id);
+      await page.locator("#confirm-ok-btn").click();
+      await waitForCloud(() => albumIds().length === 0, "Album deleted");
+
+      const visitor = await device({ reducedMotion: "reduce" });
+      await visitor.page.goto(url + "/index.html");
+      await visitor.page.evaluate(() =>
+        localStorage.setItem("sr_albums", '[{"id":"mine","title":"Mine"}]'),
+      );
+      await visitor.page.reload();
+      await visitor.page.waitForFunction(
+        () => document.querySelectorAll(".album-card").length === 0,
+      );
+      assert.match(
+        await visitor.page.locator(".album-empty").innerText(),
+        /New stories/,
+      );
+      assert.equal(
+        await visitor.page.evaluate(() => localStorage.getItem("sr_albums")),
+        '[{"id":"mine","title":"Mine"}]',
+        "The website leaves albums saved in this browser alone",
+      );
+      await visitor.context.close();
+      await context.close();
+    }
+
     // 5. The admin changes the Firebase password and signs out.
     {
       const { context, page } = await device();
@@ -514,16 +570,56 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
     }
 
     // 6. An empty cloud offers a one-time import of the website's built-in
-    //    albums; afterwards every album is managed from the admin.
+    //    albums and of albums saved on this device while cloud sync was down;
+    //    the device copy is never deleted, and afterwards every album is managed here.
     {
       cloud = {};
       const { context, page } = await device();
+      const dot =
+        "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+      await page.goto(url + "/admin.html");
+      await page.evaluate((dot) => {
+        localStorage.setItem(
+          "sr_albums",
+          JSON.stringify([
+            {
+              id: "device-album",
+              title: "Saved on this device",
+              category: "MODEL",
+              coverImage: dot,
+              photos: [
+                { id: "d1", imageUrl: dot, caption: "", sortOrder: 0 },
+                { id: "d2", imageUrl: dot, caption: "", sortOrder: 1 },
+                {
+                  id: "huge",
+                  imageUrl: "data:image/webp;base64," + "A".repeat(1000000),
+                  sortOrder: 2,
+                },
+              ],
+            },
+          ]),
+        );
+      }, dot);
       await openAdmin(page);
+      assert.notEqual(
+        await page.evaluate(() => localStorage.getItem("sr_albums")),
+        null,
+        "Albums saved on this device survive the first cloud load",
+      );
       await page.evaluate(() => gotoSection("albums"));
       const importButton = page.locator("#import-site-albums");
       assert.equal(await importButton.isVisible(), true);
       await importButton.click();
-      await waitForToast(page, /3 website album\(s\) imported/);
+      await waitForToast(
+        page,
+        /4 album\(s\) with 18 photo\(s\) imported.*1 photo\(s\) were too large/,
+      );
+      assert.equal(cloudAlbum("Saved on this device").photos.length, 2);
+      assert.notEqual(
+        await page.evaluate(() => localStorage.getItem("sr_albums")),
+        null,
+        "The device copy is kept after the import",
+      );
       assert.deepEqual(
         ["Kajendran&Tharsika", "Graduation", "Purple Saree Portraits"].map(
           (title) => cloudAlbum(title)?.photos.length,
@@ -564,13 +660,13 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
           !Object.keys(cloud).some((p) => p.startsWith("albums/" + purple.id)),
         "A deleted album leaves the cloud with its photos",
       );
-      assert.equal(albumIds().length, 2);
+      assert.equal(albumIds().length, 3);
       await context.close();
     }
 
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: admin photos publish to Firestore one document per photo and load on the website when a story opens, independent of local storage, edits write only what changed, cloud errors are reported, no save publishes before the website data loads, website albums import once, deletions remove their documents, and only the Firebase admin account can sign in, change its password and sign out.",
+      "PASS: admin photos publish to Firestore one document per photo and load on the website when a story opens, independent of local storage, edits write only what changed, cloud errors are reported, no save publishes before the website data loads, device and website albums import once, deletions remove their documents, and only the Firebase admin account can sign in, change its password and sign out.",
     );
   } finally {
     for (const context of contexts) await context.close().catch(() => {});
