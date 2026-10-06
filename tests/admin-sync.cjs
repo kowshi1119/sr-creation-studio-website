@@ -4,11 +4,10 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 const { createServer } = require("../scripts/serve.cjs");
 
-// A stand-in for the Firebase compat SDK: one in-memory cloud shared by every
-// page, so photos published by the admin can be read by a separate visitor.
-// Writes need the signed-in admin account, like database.rules.json.
+// A stand-in for the Firebase compat SDK (Auth + Firestore): one in-memory
+// cloud shared by every page, so photos published by the admin can be read by
+// a separate visitor. Writes need the signed-in admin account, like firestore.rules.
 const FAKE_FIREBASE = `(() => {
-  const listeners = [];
   const SESSION = "__fakeFirebaseUser";
   let user = JSON.parse(sessionStorage.getItem(SESSION) || "null");
   const observers = [];
@@ -42,30 +41,86 @@ const FAKE_FIREBASE = `(() => {
   };
   const authFactory = () => auth;
   authFactory.EmailAuthProvider = { credential: (email, password) => ({ email, password }) };
-  const at = (state, path) =>
-    path.split("/").reduce((node, key) => (node == null ? null : node[key] ?? null), state);
-  window.__fbEmit = (state) =>
-    listeners.forEach(({ path, cb }) => cb({ val: () => at(state, path) }));
+
+  let docs = null;
+  let loading = null;
+  const listeners = [];
+  const clone = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+  const parentOf = (path) => path.split("/").slice(0, -1).join("/");
+  const load = () => loading || (loading = window.__fsGet().then((state) => { if (!docs) docs = state; }));
+  const docSnap = (path) => ({
+    id: path.split("/").pop(),
+    exists: docs[path] !== undefined,
+    data: () => clone(docs[path]),
+  });
+  const querySnap = (path) => {
+    const list = Object.keys(docs).filter((p) => parentOf(p) === path).sort().map(docSnap);
+    return { docs: list, size: list.length, empty: !list.length, forEach: (cb) => list.forEach(cb) };
+  };
+  const view = (l) => (l.kind === "doc" ? docSnap(l.path) : querySnap(l.path));
+  const signature = (l) => {
+    const v = view(l);
+    return JSON.stringify(l.kind === "doc" ? [v.exists, v.data()] : v.docs.map((d) => [d.id, d.data()]));
+  };
+  window.__fsEmit = (state) => {
+    docs = state;
+    listeners.slice().forEach((l) => {
+      const now = signature(l);
+      if (now !== l.last) { l.last = now; l.next(view(l)); }
+    });
+  };
+  const listen = (kind, path, next) => {
+    const l = { kind, path, next, last: null, active: true };
+    load().then(() => {
+      if (!l.active) return;
+      listeners.push(l);
+      l.last = signature(l);
+      next(view(l));
+    });
+    return () => {
+      l.active = false;
+      const i = listeners.indexOf(l);
+      if (i >= 0) listeners.splice(i, 1);
+    };
+  };
+  const commit = (ops) =>
+    window.__fsCommit(JSON.stringify(ops), user && user.uid).then((error) => {
+      if (error) throw Object.assign(new Error(error), { code: "permission-denied" });
+    });
+  const docRef = (path) => ({
+    id: path.split("/").pop(),
+    path,
+    collection: (name) => colRef(path + "/" + name),
+    set: (data, options) => commit([{ op: "set", path, data, merge: Boolean(options && options.merge) }]),
+    delete: () => commit([{ op: "delete", path }]),
+    get: () => load().then(() => docSnap(path)),
+    onSnapshot: (next, error) => listen("doc", path, next, error),
+  });
+  const colRef = (path) => ({
+    path,
+    doc: (id) => docRef(path + "/" + id),
+    get: () => load().then(() => querySnap(path)),
+    onSnapshot: (next, error) => listen("col", path, next, error),
+  });
+  const db = {
+    settings() {},
+    collection: (name) => colRef(name),
+    batch() {
+      const ops = [];
+      return {
+        set(ref, data, options) { ops.push({ op: "set", path: ref.path, data, merge: Boolean(options && options.merge) }); },
+        delete(ref) { ops.push({ op: "delete", path: ref.path }); },
+        commit: () => commit(ops),
+      };
+    },
+  };
+  const firestoreFactory = () => db;
+  firestoreFactory.FieldValue = { delete: () => ({ __fieldDelete: true }) };
   window.firebase = {
     apps: [],
     initializeApp() { this.apps.push({}); },
     auth: authFactory,
-    database: () => ({
-      ref: (path) => ({
-        set: (value) =>
-          window.__fbSet(path, JSON.stringify(value), user && user.uid).then((error) => {
-            if (error) throw new Error(error);
-          }),
-        remove: () => window.__fbSet(path, "null", user && user.uid),
-        on(event, cb) {
-          listeners.push({ path, cb });
-          window.__fbGet().then((state) => {
-            cb({ val: () => at(state, path) });
-            window.__fbReady = true;
-          });
-        },
-      }),
-    }),
+    firestore: firestoreFactory,
   };
 })();`;
 
@@ -94,7 +149,10 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
     ].find(fs.existsSync);
   let browser;
+  // Firestore documents by path, e.g. "albums/a1/photos/p1".
   let cloud = {};
+  // Every accepted commit, as its list of written paths.
+  const commits = [];
   let rejectWrites = false;
   let snapshotGate = null;
   const pages = [];
@@ -113,7 +171,7 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
     await context.route(/fonts\.(googleapis|gstatic)\.com/, (route) =>
       route.abort(),
     );
-    await context.exposeFunction("__fbGet", async () => {
+    await context.exposeFunction("__fsGet", async () => {
       await snapshotGate;
       return cloud;
     });
@@ -126,17 +184,27 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       "__fbSetPassword",
       (password) => void (ADMIN.password = password),
     );
-    await context.exposeFunction("__fbSet", async (target, json, uid) => {
-      if (rejectWrites || uid !== ADMIN.uid) {
-        // Like the real SDK, a rejected write reverts listeners to the server copy.
-        await broadcast();
-        return "PERMISSION_DENIED: Permission denied";
+    await context.exposeFunction("__fsCommit", async (json, uid) => {
+      if (rejectWrites || uid !== ADMIN.uid)
+        return "PERMISSION_DENIED: Missing or insufficient permissions.";
+      const ops = JSON.parse(json);
+      const next = { ...cloud };
+      for (const op of ops) {
+        if (op.op === "delete") {
+          delete next[op.path];
+          continue;
+        }
+        const doc = op.merge ? { ...next[op.path] } : {};
+        for (const [field, value] of Object.entries(op.data))
+          if (value && value.__fieldDelete) delete doc[field];
+          else doc[field] = value;
+        // Firestore refuses documents over 1 MiB.
+        if (JSON.stringify(doc).length > 1048576)
+          return "INVALID_ARGUMENT: document " + op.path + " is too large";
+        next[op.path] = doc;
       }
-      const [root, key] = target.split("/");
-      const value = JSON.parse(json);
-      cloud[root] = { ...cloud[root] };
-      if (value === null) delete cloud[root][key];
-      else cloud[root][key] = value;
+      cloud = next;
+      commits.push(ops.map((op) => op.op + " " + op.path));
       await broadcast();
       return null;
     });
@@ -163,11 +231,22 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
     for (const page of pages)
       if (!page.isClosed())
         await page
-          .evaluate((state) => window.__fbEmit && window.__fbEmit(state), cloud)
+          .evaluate((state) => window.__fsEmit && window.__fsEmit(state), cloud)
           .catch(() => {});
   }
-  const cloudAlbum = (title) =>
-    (cloud.srStudioSiteData?.sr_albums || []).find((a) => a.title === title);
+  const albumIds = () =>
+    Object.keys(cloud)
+      .filter((p) => /^albums\/[^/]+$/.test(p))
+      .map((p) => p.split("/")[1]);
+  // An album as the website sees it: its document plus its photo documents.
+  function cloudAlbum(title) {
+    const id = albumIds().find((a) => cloud["albums/" + a].title === title);
+    if (!id) return undefined;
+    const photos = Object.keys(cloud)
+      .filter((p) => p.startsWith("albums/" + id + "/photos/"))
+      .map((p) => cloud[p]);
+    return { id, ...cloud["albums/" + id], photos };
+  }
   async function waitForCloud(check, message) {
     for (let i = 0; i < 100 && !check(); i++)
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -188,8 +267,7 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       await page.fill("#login-pass", ADMIN.password);
       await page.getByRole("button", { name: /Sign In/ }).click();
     }
-    if (waitForCloud)
-      await page.waitForFunction(() => window.__fbReady === true);
+    if (waitForCloud) await page.waitForFunction(() => CLOUD_SYNC.ready);
   }
   async function createAlbum(page, title) {
     await page.evaluate((title) => {
@@ -212,7 +290,11 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
     await page.selectOption("#upload-album-select", albumId);
     await page.click("#upload-submit-btn");
   }
-  async function visitorSees(title, count) {
+  async function visitorSees(
+    title,
+    count,
+    source = /^data:image\/webp;base64,/,
+  ) {
     const { context, page } = await device({ reducedMotion: "reduce" });
     await page.goto(url + "/index.html");
     const card = page.locator(".album-card", {
@@ -235,7 +317,7 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
     for (const src of await images.evaluateAll((list) =>
       list.map((img) => img.getAttribute("src")),
     ))
-      assert.match(src, /^data:image\/webp;base64,/);
+      assert.match(src, source);
     await context.close();
   }
 
@@ -278,13 +360,26 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       const id = await createAlbum(page, "Small story");
       await upload(page, id, PHOTOS);
       await waitForToast(page, /3 photo\(s\) published to the website/);
-      assert.equal(cloudAlbum("Small story").photos.length, 3);
+      const small = cloudAlbum("Small story");
+      assert.equal(small.photos.length, 3);
+      assert.equal(small.photoCount, 3);
+      // One photo per document, with its real size and a lighter album cover.
+      small.photos.forEach((p) => {
+        assert.match(p.imageUrl, /^data:image\/webp;base64,/);
+        assert.ok(p.width > 0 && p.height > 0);
+        assert.equal(p.thumbnailUrl, undefined);
+      });
+      assert.match(small.coverImage, /^data:image\/webp;base64,/);
+      assert.ok(
+        small.coverImage.length <
+          Math.max(...small.photos.map((p) => p.imageUrl.length)),
+      );
       await visitorSees("Small story", 3);
       await context.close();
     }
 
-    // 2. Photos beyond this browser's storage quota still reach the website,
-    //    survive an admin reload, and later edits still publish.
+    // 2. Photos never depend on this browser's storage: with it nearly full they
+    //    still publish, survive an admin reload, and later edits write only what changed.
     {
       cloud = {};
       const { context, page } = await device();
@@ -303,15 +398,16 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       const id = await createAlbum(page, "Large story");
       await upload(page, id, PHOTOS);
       await waitForToast(page, /3 photo\(s\) published to the website/);
-      assert.ok(
-        (await toasts(page)).some((t) => /offline copy is full/.test(t)),
-        "The upload exceeded this browser's storage",
+      assert.equal(
+        await page.evaluate(() => localStorage.getItem("sr_albums")),
+        null,
+        "Album photos are not copied into localStorage",
       );
       assert.equal(cloudAlbum("Large story").photos.length, 3);
       await visitorSees("Large story", 3);
 
       await page.reload();
-      await page.waitForFunction(() => window.__fbReady === true);
+      await page.waitForFunction(() => CLOUD_SYNC.ready);
       await page.evaluate(() => gotoSection("albums"));
       assert.match(
         await page.locator("#admin-album-grid").innerText(),
@@ -323,6 +419,18 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
         "Edits publish after a reload",
       );
       assert.equal(cloudAlbum("Large story").photos.length, 3);
+      // Renaming an album rewrites its details only, never its photographs.
+      const before = commits.length;
+      await page.evaluate((id) => {
+        openAddAlbumModal(id);
+        document.getElementById("af-title").value = "Large story, renamed";
+        saveAlbum();
+      }, id);
+      await waitForCloud(
+        () => cloudAlbum("Large story, renamed"),
+        "Rename publishes",
+      );
+      assert.deepEqual(commits.slice(before), [["set albums/" + id]]);
       await context.close();
     }
 
@@ -342,6 +450,7 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
         !(await toasts(page)).some((t) => /published to the website/.test(t)),
       );
       assert.equal(cloudAlbum("Rejected story").photos.length, 0);
+      assert.equal(cloudAlbum("Rejected story").photoCount, 0);
       rejectWrites = false;
       await context.close();
     }
@@ -349,7 +458,7 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
     // 4. Until the website data has loaded, a save cannot replace it with an
     //    incomplete copy (for example after a reload with a full local store).
     {
-      const live = cloud.srStudioSiteData.sr_albums.length;
+      const live = albumIds().length;
       let release;
       snapshotGate = new Promise((resolve) => (release = resolve));
       const { context, page } = await device();
@@ -360,16 +469,72 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
         saveAlbum();
       });
       await waitForToast(page, /Still loading the website data/);
-      assert.equal(cloud.srStudioSiteData.sr_albums.length, live);
+      assert.equal(albumIds().length, live);
       release();
       snapshotGate = null;
-      await page.waitForFunction(() => window.__fbReady === true);
+      await page.waitForFunction(() => CLOUD_SYNC.ready);
       await createAlbum(page, "On time");
       await waitForCloud(
         () => cloudAlbum("On time"),
         "Saves publish once the website data has loaded",
       );
-      assert.equal(cloud.srStudioSiteData.sr_albums.length, live + 1);
+      assert.equal(albumIds().length, live + 1);
+      await context.close();
+    }
+
+    // 8. Once the admin manages the albums, an empty list stays empty on the
+    //    website instead of bringing back the built-in albums; the public site
+    //    never touches albums saved in that browser; an album that has not
+    //    finished loading in this admin is never deleted by an unrelated save.
+    {
+      cloud = {};
+      const { context, page } = await device();
+      await openAdmin(page);
+      const id = await createAlbum(page, "Only album");
+      await waitForCloud(
+        () => cloud["site/settings"]?.albumsManaged === true,
+        "The first published album marks the albums as managed",
+      );
+      await page.evaluate(() => {
+        // An album created elsewhere whose photographs have not arrived yet.
+        cloudState.albums.set("ghost", { title: "Ghost", sortOrder: 9 });
+      });
+      const before = commits.length;
+      await page.evaluate((id) => {
+        openAddAlbumModal(id);
+        document.getElementById("af-title").value = "Only album, renamed";
+        saveAlbum();
+      }, id);
+      await waitForCloud(() => cloudAlbum("Only album, renamed"), "Rename");
+      assert.deepEqual(
+        commits.slice(before),
+        [["set albums/" + id]],
+        "A stale list never deletes albums it has not shown",
+      );
+      await page.evaluate(() => cloudState.albums.delete("ghost"));
+      await page.evaluate((id) => confirmDeleteAlbum(id), id);
+      await page.locator("#confirm-ok-btn").click();
+      await waitForCloud(() => albumIds().length === 0, "Album deleted");
+
+      const visitor = await device({ reducedMotion: "reduce" });
+      await visitor.page.goto(url + "/index.html");
+      await visitor.page.evaluate(() =>
+        localStorage.setItem("sr_albums", '[{"id":"mine","title":"Mine"}]'),
+      );
+      await visitor.page.reload();
+      await visitor.page.waitForFunction(
+        () => document.querySelectorAll(".album-card").length === 0,
+      );
+      assert.match(
+        await visitor.page.locator(".album-empty").innerText(),
+        /New stories/,
+      );
+      assert.equal(
+        await visitor.page.evaluate(() => localStorage.getItem("sr_albums")),
+        '[{"id":"mine","title":"Mine"}]',
+        "The website leaves albums saved in this browser alone",
+      );
+      await visitor.context.close();
       await context.close();
     }
 
@@ -404,9 +569,104 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       await context.close();
     }
 
+    // 6. An empty cloud offers a one-time import of the website's built-in
+    //    albums and of albums saved on this device while cloud sync was down;
+    //    the device copy is never deleted, and afterwards every album is managed here.
+    {
+      cloud = {};
+      const { context, page } = await device();
+      const dot =
+        "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+      await page.goto(url + "/admin.html");
+      await page.evaluate((dot) => {
+        localStorage.setItem(
+          "sr_albums",
+          JSON.stringify([
+            {
+              id: "device-album",
+              title: "Saved on this device",
+              category: "MODEL",
+              coverImage: dot,
+              photos: [
+                { id: "d1", imageUrl: dot, caption: "", sortOrder: 0 },
+                { id: "d2", imageUrl: dot, caption: "", sortOrder: 1 },
+                {
+                  id: "huge",
+                  imageUrl: "data:image/webp;base64," + "A".repeat(1000000),
+                  sortOrder: 2,
+                },
+              ],
+            },
+          ]),
+        );
+      }, dot);
+      await openAdmin(page);
+      assert.notEqual(
+        await page.evaluate(() => localStorage.getItem("sr_albums")),
+        null,
+        "Albums saved on this device survive the first cloud load",
+      );
+      await page.evaluate(() => gotoSection("albums"));
+      const importButton = page.locator("#import-site-albums");
+      assert.equal(await importButton.isVisible(), true);
+      await importButton.click();
+      await waitForToast(
+        page,
+        /4 album\(s\) with 18 photo\(s\) imported.*1 photo\(s\) were too large/,
+      );
+      assert.equal(cloudAlbum("Saved on this device").photos.length, 2);
+      assert.notEqual(
+        await page.evaluate(() => localStorage.getItem("sr_albums")),
+        null,
+        "The device copy is kept after the import",
+      );
+      assert.deepEqual(
+        ["Kajendran&Tharsika", "Graduation", "Purple Saree Portraits"].map(
+          (title) => cloudAlbum(title)?.photos.length,
+        ),
+        [3, 8, 5],
+      );
+      assert.ok(
+        cloudAlbum("Graduation").photos.every((p) =>
+          p.imageUrl.startsWith("assets/photos/"),
+        ),
+      );
+      assert.equal(await importButton.isVisible(), false);
+      await visitorSees(
+        "Purple Saree Portraits",
+        5,
+        /assets\/photos\/portrait-\d\.webp$/,
+      );
+
+      // 7. Deleting a photo or an album removes its documents.
+      const purple = cloudAlbum("Purple Saree Portraits");
+      const photoId = Object.keys(cloud)
+        .find((p) => p.startsWith("albums/" + purple.id + "/photos/"))
+        .split("/")
+        .pop();
+      await page.evaluate(
+        ([albumId, id]) => deletePhoto(albumId, id),
+        [purple.id, photoId],
+      );
+      await waitForCloud(
+        () => cloudAlbum("Purple Saree Portraits").photos.length === 4,
+        "A deleted photo leaves the cloud",
+      );
+      assert.equal(cloudAlbum("Purple Saree Portraits").photoCount, 4);
+      await page.evaluate((id) => confirmDeleteAlbum(id), purple.id);
+      await page.locator("#confirm-ok-btn").click();
+      await waitForCloud(
+        () =>
+          !Object.keys(cloud).some((p) => p.startsWith("albums/" + purple.id)),
+        "A deleted album leaves the cloud with its photos",
+      );
+      assert.equal(albumIds().length, 3);
+      await context.close();
+    }
+
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: admin photos publish to the website, beyond the local storage quota, after a reload, cloud errors are reported, no save publishes before the website data loads, and only the Firebase admin account can sign in, change its password and sign out.",
+      "PASS: admin photos publish to Firestore one document per photo and load on the website when a story opens, independent of local storage, edits write only what changed, cloud errors are reported, no save publishes before the website data loads, device and website albums import once, deletions remove their documents, and only the Firebase admin account can sign in, change its password and sign out.",
     );
   } finally {
     for (const context of contexts) await context.close().catch(() => {});
