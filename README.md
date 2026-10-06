@@ -41,7 +41,7 @@ npm test
 
 The tests use installed Chrome or Edge automatically on Windows. Elsewhere they use Playwright Chromium. Set `CHROME_PATH` to select another Chrome executable.
 
-Browser tests cover up to eleven viewport widths, the stories and story reader, the studio index, the enquiry message format, structured data, image loading priorities, layout stability, photo loading, filters, keyboard galleries, nested modal behavior and focus, pricing tabs, inquiry links, the assistant, storage failures, data rendering, mobile navigation, 3D motion controls, reduced motion, no-JavaScript fallback and automated WCAG A/AA accessibility checks. Firebase requests are blocked during regression tests so production content is never modified. Set `SCREENSHOT_DIR` to save review screenshots.
+Browser tests cover up to eleven viewport widths, the stories and story reader, the studio index, the enquiry message format, structured data, image loading priorities, layout stability, photo loading, filters, keyboard galleries, nested modal behavior and focus, pricing tabs, inquiry links, the assistant, storage failures, admin photo publishing beyond the local storage quota, data rendering, mobile navigation, 3D motion controls, reduced motion, no-JavaScript fallback and automated WCAG A/AA accessibility checks. Firebase requests are blocked or replaced by an in-memory stand-in during regression tests, so production content is never modified. Set `SCREENSHOT_DIR` to save review screenshots.
 
 ## Files
 
@@ -74,6 +74,8 @@ An admin album collection replaces the bundled fallback; an explicitly empty col
 Story covers use each album's `coverImage`; choose covers without a text banner at the top for the cleanest crop. Photographs with a recorded `width` and `height` are sequenced immediately in the story reader; others are measured once they load. The studio index previews the cover of the first published album in the matching category, so previews appear as albums are added.
 
 The hero photographs are curated independently in `index.html`. Edit those image paths to change the homepage composition. Change default services and prices in `assets/studio.js`; contact links also appear in `index.html`.
+
+Photos uploaded in the admin are compressed to WebP and stored inside `sr_albums`, so they can outgrow the browser’s local storage (about 5 MB per site). The cloud copy is the one the website shows: a full local store no longer stops an upload from being published, and the admin only reports “published to the website” after Firebase confirms the write, or shows the Firebase error when it is refused. Every upload rewrites the whole album list, and Firebase SDK writes are limited to 16 MB, so a large photo library is best hosted outside the database, with image URLs saved in the albums.
 
 The public page never writes to Firebase. This redesign does not change the existing admin authentication model: the admin’s local credential check is client-side. Firebase rules and authenticated write access must be managed separately in the Firebase project.
 
