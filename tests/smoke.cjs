@@ -37,14 +37,14 @@ const { createServer } = require("../scripts/serve.cjs");
       () => document.documentElement.dataset.intro === "complete",
     );
     assert.match(await page.locator("h1").innerText(), /Some moments/);
-    assert.equal(await page.locator(".album-card").count(), 2);
+    assert.equal(await page.locator(".album-card").count(), 3);
     assert.equal(
       await page.locator(".pkg-panel:not([hidden]) .pkg-card").count(),
       5,
     );
 
     await page.getByRole("button", { name: "Portraits", exact: true }).click();
-    assert.equal(await page.locator(".album-card").count(), 1);
+    assert.equal(await page.locator(".album-card").count(), 2);
     await page
       .getByRole("button", { name: "All stories", exact: true })
       .click();
