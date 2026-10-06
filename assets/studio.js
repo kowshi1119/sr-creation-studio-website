@@ -243,7 +243,6 @@ const PACKAGES = {
 window.SR_FIREBASE_CONFIG = window.SR_FIREBASE_CONFIG || {
   apiKey: "AIzaSyAgs7fetaSjy5bhtaClcvroQvTBBe5iyMM",
   authDomain: "sr-creation-studio-web.firebaseapp.com",
-  databaseURL: "https://sr-creation-studio-web-default-rtdb.firebaseio.com",
   projectId: "sr-creation-studio-web",
   storageBucket: "sr-creation-studio-web.firebasestorage.app",
   messagingSenderId: "1056115151978",
@@ -251,7 +250,7 @@ window.SR_FIREBASE_CONFIG = window.SR_FIREBASE_CONFIG || {
   measurementId: "G-95G85K4RR3",
 };
 
-/* Public site: read-only Firebase sync; the admin data keys remain unchanged. */
+/* Public site: read-only Firebase sync (Firestore); the admin data keys remain unchanged. */
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const categoryLabel = (category) =>
@@ -339,8 +338,30 @@ function getAlbums() {
       a.published !== false,
   );
 }
+// Cloud albums arrive without their photographs; each story's photographs
+// load from Firestore when it is opened and are kept for the visit.
+const photoCache = new Map();
+function cachedPhotos(album) {
+  const entry = album.cloudPhotos ? photoCache.get(String(album.id)) : null;
+  return entry && entry.count === Number(album.photoCount) ? entry.list : null;
+}
+function needsPhotos(album) {
+  return Boolean(
+    album.cloudPhotos &&
+    !Array.isArray(album.photos) &&
+    Number(album.photoCount) > 0 &&
+    !cachedPhotos(album),
+  );
+}
+function storyPhotoCount(album) {
+  return needsPhotos(album)
+    ? Number(album.photoCount)
+    : albumPhotos(album).length;
+}
 function albumPhotos(album) {
-  const list = Array.isArray(album.photos) ? album.photos : [];
+  const list = Array.isArray(album.photos)
+    ? album.photos
+    : cachedPhotos(album) || [];
   const photos = list
     .map((p) => (typeof p === "string" ? { imageUrl: p, caption: "" } : p))
     .filter((p) => p && imageURL(p.imageUrl));
@@ -433,7 +454,6 @@ function albumCover(album) {
     : { url: "", size: null };
 }
 function storyCard(album, index) {
-  const photos = albumPhotos(album);
   const title = storyTitle(album);
   const cover = albumCover(album);
   const button = element(
@@ -455,7 +475,7 @@ function storyCard(album, index) {
     element("h3", "", title),
     meta,
   );
-  const count = photoCount(photos.length);
+  const count = photoCount(storyPhotoCount(album));
   if (count) info.append(element("span", "story-count", count));
   info.append(element("span", "story-cta", "View story"));
   button.append(thumb, info);
@@ -577,9 +597,27 @@ function showStory(index) {
     typeof album.shortDescription === "string"
       ? album.shortDescription.trim()
       : "";
-  const photos = albumPhotos(album);
-  $("#album-modal-count").textContent = photoCount(photos.length);
-  renderStory(album, photos.map(photoSize));
+  $("#album-modal-count").textContent = photoCount(storyPhotoCount(album));
+  if (needsPhotos(album)) {
+    const grid = $("#album-modal-grid");
+    grid.replaceChildren(element("p", "album-empty", "Loading photographs…"));
+    loadStoryPhotos(album).then(
+      () => {
+        if (readerStories[storyIndex] === album)
+          renderStory(album, albumPhotos(album).map(photoSize));
+      },
+      () => {
+        if (readerStories[storyIndex] === album)
+          grid.replaceChildren(
+            element(
+              "p",
+              "album-empty",
+              "The photographs couldn’t load. Please check your connection and open the story again.",
+            ),
+          );
+      },
+    );
+  } else renderStory(album, albumPhotos(album).map(photoSize));
   const many = readerStories.length > 1;
   $("#story-nav").hidden = !many;
   // With two stories, "previous" and "next" would name the same one.
@@ -1039,31 +1077,81 @@ function loadScript(src) {
     document.head.append(script);
   });
 }
+// Resolves with the Firestore instance once the SDK has loaded.
+let resolveCloud, rejectCloud;
+const cloudReady = new Promise((resolve, reject) => {
+  resolveCloud = resolve;
+  rejectCloud = reject;
+});
+cloudReady.catch(() => {});
+const bySortOrder = (a, b) =>
+  (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
+const photoRequests = new Map();
+function loadStoryPhotos(album) {
+  const id = String(album.id);
+  if (!photoRequests.has(id)) {
+    const request = cloudReady
+      .then((db) => db.collection("albums").doc(id).collection("photos").get())
+      .then((snapshot) => {
+        const list = [];
+        snapshot.forEach((doc) => list.push({ ...doc.data(), id: doc.id }));
+        list.sort(bySortOrder);
+        photoCache.set(id, { count: list.length, list });
+      })
+      .finally(() => photoRequests.delete(id));
+    photoRequests.set(id, request);
+  }
+  return photoRequests.get(id);
+}
+/* Public site: read-only Firestore. site/settings holds the logo and
+   packages; albums/{id} holds each story without its photographs. */
 async function startCloudSync() {
   try {
     await loadScript(
       "https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js",
     );
     await loadScript(
-      "https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js",
+      "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js",
     );
     if (!firebase.apps.length)
       firebase.initializeApp(window.SR_FIREBASE_CONFIG);
-    firebase
-      .database()
-      .ref("srStudioSiteData")
-      .on(
-        "value",
-        (snapshot) => {
-          const payload = snapshot.val();
-          if (payload) applyRemoteData(payload);
-        },
-        () =>
-          console.info(
-            "[SR Studio] Cloud unavailable; showing saved portfolio.",
-          ),
+    const db = firebase.firestore();
+    resolveCloud(db);
+    const cloud = { settings: null, albums: null };
+    const publish = () => {
+      if (!cloud.settings || !cloud.albums) return;
+      const payload = {};
+      // An empty cloud keeps the bundled portfolio.
+      if (cloud.albums.length) payload.sr_albums = cloud.albums;
+      Object.entries({
+        sr_logo: "logo",
+        sr_packages: "packages",
+        sr_pkg_categories: "pkgCategories",
+        sr_album_categories: "albumCategories",
+      }).forEach(([key, field]) => {
+        if (cloud.settings[field] !== undefined)
+          payload[key] = cloud.settings[field];
+      });
+      applyRemoteData(payload);
+    };
+    const unavailable = () =>
+      console.info("[SR Studio] Cloud unavailable; showing saved portfolio.");
+    db.collection("site")
+      .doc("settings")
+      .onSnapshot((doc) => {
+        cloud.settings = (doc.exists && doc.data()) || {};
+        publish();
+      }, unavailable);
+    db.collection("albums").onSnapshot((snapshot) => {
+      const albums = [];
+      snapshot.forEach((doc) =>
+        albums.push({ ...doc.data(), id: doc.id, cloudPhotos: true }),
       );
-  } catch {
+      cloud.albums = albums.sort(bySortOrder);
+      publish();
+    }, unavailable);
+  } catch (error) {
+    rejectCloud(error);
     console.info("[SR Studio] Offline portfolio ready.");
   }
 }

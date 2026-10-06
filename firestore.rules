@@ -1,0 +1,26 @@
+rules_version = '2';
+// Everyone can read the website's content; only the admin account can change it.
+// Replace REPLACE_WITH_ADMIN_UID with the admin user's UID (Firebase console →
+// Authentication → Users) before publishing.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == 'REPLACE_WITH_ADMIN_UID';
+    }
+    match /site/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /albums/{albumId} {
+      allow read: if true;
+      allow write: if isAdmin();
+      match /photos/{photoId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
