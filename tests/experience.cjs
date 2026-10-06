@@ -80,6 +80,7 @@ const decode = (href) =>
       [
         ["01", "Kajendran&Tharsika", ["Wedding", "Jaffna", "March 2026"]],
         ["02", "Graduation", ["Portrait", "Jaffna Uni"]],
+        ["03", "Purple Saree Portraits", ["Portrait"]],
       ],
     );
     stories.forEach((s) => {
@@ -153,7 +154,11 @@ const decode = (href) =>
       localStorage.clear();
       applyRemoteData({});
     });
-    assert.equal(await page.locator(".album-card").count(), 2);
+    assert.equal(await page.locator(".album-card").count(), 3);
+    // The reader checks below use the two original stories.
+    await page.evaluate(() =>
+      applyRemoteData({ sr_albums: window.SR_PORTFOLIO.slice(0, 2) }),
+    );
 
     // A story opens as an editorial sequence that follows each image's shape.
     await page.locator(".album-card").nth(1).click();

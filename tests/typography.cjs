@@ -207,7 +207,7 @@ function smallText([rootSelector, limits]) {
     ]);
     assert.equal(
       await page.locator("#portfolio-count").innerText(),
-      "2 stories",
+      "3 stories",
     );
 
     // Overlays and dialogs follow the same minimums.
