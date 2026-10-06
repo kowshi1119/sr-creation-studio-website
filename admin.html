@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 <style>
 :root {
   --red:#D72638; --red-dark:#b01f2e; --gold:#e6c364; --gold-dark:#785d00;
@@ -188,7 +189,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
     <h1>SR Creation Studio</h1>
     <div class="sub">Admin Portal</div>
     <div class="form-group">
-      <label>Username</label>
+      <label for="login-user" id="login-user-label">Username</label>
       <input class="form-input" id="login-user" type="text" placeholder="Enter username" autocomplete="username"/>
     </div>
     <div class="form-group">
@@ -198,7 +199,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
     <button class="btn btn-red" style="width:100%;margin-top:0.5rem;" onclick="doLogin()">
       <span class="material-symbols-outlined">login</span> Sign In
     </button>
-    <div id="login-error" class="show" style="display:none;">Incorrect username or password.</div>
+    <div id="login-error" role="alert">Incorrect username or password.</div>
   </div>
 </div>
 
@@ -413,7 +414,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5;}
           </div>
           <button class="btn btn-red" onclick="changePassword()"><span class="material-symbols-outlined">lock_reset</span> Update Password</button>
         </div>
-        <div class="panel" style="max-width:460px;margin-top:1.5rem;">
+        <div class="panel" id="username-panel" style="max-width:460px;margin-top:1.5rem;">
           <div class="panel-title">Change Username</div>
           <div class="form-group">
             <label>New Username</label>
@@ -729,41 +730,96 @@ let currentUser = null;
 
 function getCreds(){ return safeGet(KEYS.creds) || DEFAULT_CREDS; }
 
+/*
+ * Cloud sign-in: when Firebase is available the admin signs in with the
+ * Firebase email/password account that the database rules allow to write.
+ * Without Firebase, the local credential check above is kept (local-only mode).
+ */
+function getCloudAuth(){
+  if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') return null;
+  const cfg = window.SR_FIREBASE_CONFIG || {};
+  if (!(cfg.apiKey && cfg.projectId && cfg.databaseURL)) return null;
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    return firebase.auth();
+  } catch (err) {
+    console.error('[SR Cloud] Firebase auth init error:', err);
+    return null;
+  }
+}
+const CLOUD_AUTH = getCloudAuth();
+let appStarted = false;
+
+function showLoginError(msg){
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function loginErrorMessage(err){
+  const code = err && err.code || '';
+  if (['auth/invalid-credential','auth/wrong-password','auth/user-not-found','auth/invalid-login-credentials'].includes(code)) return 'Incorrect email or password.';
+  if (code === 'auth/invalid-email') return 'Enter the admin email address.';
+  if (code === 'auth/too-many-requests') return 'Too many attempts. Please wait a few minutes and try again.';
+  if (code === 'auth/network-request-failed') return 'No connection to Firebase. Check your internet connection.';
+  if (code === 'auth/operation-not-allowed') return 'Email/password sign-in is not enabled in the Firebase console.';
+  return 'Sign-in failed: ' + (err && err.message || err);
+}
+
+function showApp(name){
+  if (appStarted) return;
+  appStarted = true;
+  currentUser = name;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('sb-username').textContent = name;
+  document.getElementById('sb-av').textContent = name[0].toUpperCase();
+  // The email is the identity of a cloud account; usernames apply to local-only mode.
+  if (CLOUD_AUTH) document.getElementById('username-panel').style.display = 'none';
+  initApp();
+}
+
 function doLogin(){
   const u = document.getElementById('login-user').value.trim();
   const p = document.getElementById('login-pass').value;
+  document.getElementById('login-error').classList.remove('show');
+  if (CLOUD_AUTH) {
+    // onAuthStateChanged opens the app once Firebase accepts the account.
+    CLOUD_AUTH.signInWithEmailAndPassword(u, p).catch(err => showLoginError(loginErrorMessage(err)));
+    return;
+  }
   const creds = getCreds();
   if(u===creds.username && p===creds.password){
-    currentUser = u;
     sessionStorage.setItem('sr_auth','1');
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app').classList.add('visible');
-    document.getElementById('sb-username').textContent = u;
-    document.getElementById('sb-av').textContent = u[0].toUpperCase();
-    initApp();
+    showApp(u);
   } else {
-    document.getElementById('login-error').classList.add('show');
+    showLoginError('Incorrect username or password.');
   }
 }
 
 function doLogout(){
   sessionStorage.removeItem('sr_auth');
+  // Signing out reloads through onAuthStateChanged.
+  if (CLOUD_AUTH) { CLOUD_AUTH.signOut().catch(() => location.reload()); return; }
   location.reload();
 }
 
 /* Check session */
-if(sessionStorage.getItem('sr_auth')){
-  currentUser = getCreds().username;
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app').classList.add('visible');
-  document.getElementById('sb-username').textContent = currentUser;
-  document.getElementById('sb-av').textContent = currentUser[0].toUpperCase();
-  document.addEventListener('DOMContentLoaded', initApp);
-} else {
-  document.addEventListener('DOMContentLoaded', ()=>{
-    document.getElementById('login-user').focus();
+if (CLOUD_AUTH) {
+  document.getElementById('login-user-label').textContent = 'Email';
+  document.getElementById('login-user').placeholder = 'Enter admin email';
+  document.getElementById('login-user').setAttribute('inputmode', 'email');
+  // Firebase keeps the session across reloads.
+  CLOUD_AUTH.onAuthStateChanged(user => {
+    if (user) showApp(user.email || 'admin');
+    else if (appStarted) location.reload();
   });
+} else if(sessionStorage.getItem('sr_auth')){
+  document.addEventListener('DOMContentLoaded', () => showApp(getCreds().username));
 }
+document.addEventListener('DOMContentLoaded', ()=>{
+  if (!appStarted) document.getElementById('login-user').focus();
+});
 
 /* ════════════════════════════════════════════
    NAVIGATION
@@ -1449,10 +1505,22 @@ function changePassword(){
   const old = document.getElementById('set-old-pass').value;
   const n = document.getElementById('set-new-pass').value;
   const c = document.getElementById('set-confirm-pass').value;
-  const creds = getCreds();
-  if(old!==creds.password){ toast('Current password incorrect','error'); return; }
   if(n.length<8){ toast('Password must be at least 8 characters','error'); return; }
   if(n!==c){ toast('Passwords do not match','error'); return; }
+  if(CLOUD_AUTH && CLOUD_AUTH.currentUser){
+    // Firebase asks for the current password again before changing it.
+    const user = CLOUD_AUTH.currentUser;
+    user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email, old))
+      .then(() => user.updatePassword(n))
+      .then(() => {
+        ['set-old-pass','set-new-pass','set-confirm-pass'].forEach(id => document.getElementById(id).value='');
+        toast('Password updated!');
+      })
+      .catch(err => toast(['auth/wrong-password','auth/invalid-credential','auth/invalid-login-credentials'].includes(err && err.code) ? 'Current password incorrect' : 'Password not changed: ' + (err && err.message || err),'error'));
+    return;
+  }
+  const creds = getCreds();
+  if(old!==creds.password){ toast('Current password incorrect','error'); return; }
   safeSet(KEYS.creds,{...creds,password:n});
   document.getElementById('set-old-pass').value='';
   document.getElementById('set-new-pass').value='';

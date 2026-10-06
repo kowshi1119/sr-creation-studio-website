@@ -77,7 +77,18 @@ The hero photographs are curated independently in `index.html`. Edit those image
 
 Photos uploaded in the admin are compressed to WebP and stored inside `sr_albums`, so they can outgrow the browser’s local storage (about 5 MB per site). The cloud copy is the one the website shows: a full local store no longer stops an upload from being published, and the admin only reports “published to the website” after Firebase confirms the write, or shows the Firebase error when it is refused. Every upload rewrites the whole album list, and Firebase SDK writes are limited to 16 MB, so a large photo library is best hosted outside the database, with image URLs saved in the albums.
 
-The public page never writes to Firebase. This redesign does not change the existing admin authentication model: the admin’s local credential check is client-side. Firebase rules and authenticated write access must be managed separately in the Firebase project.
+The public page never writes to Firebase. When Firebase is available, `admin.html` signs in with a Firebase email/password account, and only that account may write. Without Firebase, the admin falls back to its local credential check and saves on that device only.
+
+### Firebase setup (once, in the Firebase console)
+
+Firebase’s default “test mode” rules stop all reads and writes 30 days after a database is created. After that the admin cannot publish and the website shows only the bundled albums. To publish safely:
+
+1. **Authentication → Sign-in method:** enable **Email/Password**.
+2. **Authentication → Users → Add user:** enter the studio’s email and a strong password, then copy the new user’s **User UID**.
+3. **Realtime Database → Rules:** paste `database.rules.json`, replace `REPLACE_WITH_ADMIN_UID` with that UID, and **Publish**. Everyone can read `srStudioSiteData`; only the admin account can write.
+4. Open `admin.html`, sign in with that email and password, and upload. The admin confirms “published to the website!”, or shows the Firebase error if a write is refused.
+
+The password can be changed under Settings in the admin, or reset from the Firebase console.
 
 ## Deployment
 

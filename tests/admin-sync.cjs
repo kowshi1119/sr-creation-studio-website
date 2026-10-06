@@ -6,8 +6,42 @@ const { createServer } = require("../scripts/serve.cjs");
 
 // A stand-in for the Firebase compat SDK: one in-memory cloud shared by every
 // page, so photos published by the admin can be read by a separate visitor.
+// Writes need the signed-in admin account, like database.rules.json.
 const FAKE_FIREBASE = `(() => {
   const listeners = [];
+  const SESSION = "__fakeFirebaseUser";
+  let user = JSON.parse(sessionStorage.getItem(SESSION) || "null");
+  const observers = [];
+  const authError = (code) => Object.assign(new Error(code), { code });
+  const account = (u) => u && {
+    ...u,
+    reauthenticateWithCredential: (c) =>
+      window.__fbSignIn(c.email, c.password).then((r) => { if (r.code) throw authError(r.code); }),
+    updatePassword: (password) => window.__fbSetPassword(password),
+  };
+  const auth = {
+    get currentUser() { return account(user); },
+    signInWithEmailAndPassword: (email, password) =>
+      window.__fbSignIn(email, password).then((r) => {
+        if (r.code) throw authError(r.code);
+        user = { uid: r.uid, email };
+        sessionStorage.setItem(SESSION, JSON.stringify(user));
+        observers.forEach((cb) => cb(account(user)));
+        return { user: account(user) };
+      }),
+    signOut() {
+      user = null;
+      sessionStorage.removeItem(SESSION);
+      observers.forEach((cb) => cb(null));
+      return Promise.resolve();
+    },
+    onAuthStateChanged(cb) {
+      observers.push(cb);
+      setTimeout(() => cb(account(user)), 0);
+    },
+  };
+  const authFactory = () => auth;
+  authFactory.EmailAuthProvider = { credential: (email, password) => ({ email, password }) };
   const at = (state, path) =>
     path.split("/").reduce((node, key) => (node == null ? null : node[key] ?? null), state);
   window.__fbEmit = (state) =>
@@ -15,13 +49,14 @@ const FAKE_FIREBASE = `(() => {
   window.firebase = {
     apps: [],
     initializeApp() { this.apps.push({}); },
+    auth: authFactory,
     database: () => ({
       ref: (path) => ({
         set: (value) =>
-          window.__fbSet(path, JSON.stringify(value)).then((error) => {
+          window.__fbSet(path, JSON.stringify(value), user && user.uid).then((error) => {
             if (error) throw new Error(error);
           }),
-        remove: () => window.__fbSet(path, "null"),
+        remove: () => window.__fbSet(path, "null", user && user.uid),
         on(event, cb) {
           listeners.push({ path, cb });
           window.__fbGet().then((state) => {
@@ -33,6 +68,12 @@ const FAKE_FIREBASE = `(() => {
     }),
   };
 })();`;
+
+const ADMIN = {
+  email: "studio@example.com",
+  password: "correct-horse-battery",
+  uid: "admin-uid",
+};
 
 const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
   name: name + ".webp",
@@ -76,8 +117,17 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       await snapshotGate;
       return cloud;
     });
-    await context.exposeFunction("__fbSet", async (target, json) => {
-      if (rejectWrites) {
+    await context.exposeFunction("__fbSignIn", (email, password) =>
+      email !== ADMIN.email || password !== ADMIN.password
+        ? { code: "auth/invalid-credential" }
+        : { uid: ADMIN.uid },
+    );
+    await context.exposeFunction(
+      "__fbSetPassword",
+      (password) => void (ADMIN.password = password),
+    );
+    await context.exposeFunction("__fbSet", async (target, json, uid) => {
+      if (rejectWrites || uid !== ADMIN.uid) {
         // Like the real SDK, a rejected write reverts listeners to the server copy.
         await broadcast();
         return "PERMISSION_DENIED: Permission denied";
@@ -134,8 +184,8 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
   async function openAdmin(page, { waitForCloud = true } = {}) {
     await page.goto(url + "/admin.html");
     if (await page.locator("#login-user").isVisible()) {
-      await page.fill("#login-user", "admin");
-      await page.fill("#login-pass", "srcstudio2024");
+      await page.fill("#login-user", ADMIN.email);
+      await page.fill("#login-pass", ADMIN.password);
       await page.getByRole("button", { name: /Sign In/ }).click();
     }
     if (waitForCloud)
@@ -194,6 +244,32 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       headless: true,
       ...(executablePath ? { executablePath } : {}),
     });
+
+    // 0. Only the Firebase admin account can sign in; the old default
+    //    username no longer opens the admin when Firebase is available.
+    {
+      const { context, page } = await device();
+      await page.goto(url + "/admin.html");
+      assert.equal(
+        await page.locator("#login-user-label").textContent(),
+        "Email",
+      );
+      for (const [email, password] of [
+        ["admin", "srcstudio2024"],
+        [ADMIN.email, "wrong-password"],
+      ]) {
+        await page.fill("#login-user", email);
+        await page.fill("#login-pass", password);
+        await page.getByRole("button", { name: /Sign In/ }).click();
+        await page.locator("#login-error").waitFor({ state: "visible" });
+        assert.equal(
+          await page.locator("#login-error").innerText(),
+          "Incorrect email or password.",
+        );
+        assert.equal(await page.locator("#app").isVisible(), false);
+      }
+      await context.close();
+    }
 
     // 1. A few photos travel from the admin to a visitor on another device.
     {
@@ -297,9 +373,40 @@ const PHOTOS = ["graduation-1", "graduation-2", "wedding-1"].map((name) => ({
       await context.close();
     }
 
+    // 5. The admin changes the Firebase password and signs out.
+    {
+      const { context, page } = await device();
+      await openAdmin(page);
+      assert.equal(await page.locator("#username-panel").isVisible(), false);
+      const change = (old, next) =>
+        page.evaluate(
+          ([old, next]) => {
+            document.getElementById("set-old-pass").value = old;
+            document.getElementById("set-new-pass").value = next;
+            document.getElementById("set-confirm-pass").value = next;
+            changePassword();
+          },
+          [old, next],
+        );
+      await change("not-my-password", "a-brand-new-pass");
+      await waitForToast(page, /Current password incorrect/);
+      await change(ADMIN.password, "a-brand-new-pass");
+      await waitForToast(page, /Password updated!/);
+      assert.equal(ADMIN.password, "a-brand-new-pass");
+      await Promise.all([
+        page.waitForNavigation(),
+        page.locator("button[title='Sign out']").click(),
+      ]);
+      await page.locator("#login-user").waitFor({ state: "visible" });
+      assert.equal(await page.locator("#app").isVisible(), false);
+      await openAdmin(page);
+      assert.equal(await page.locator("#app").isVisible(), true);
+      await context.close();
+    }
+
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: admin photos publish to the website, beyond the local storage quota, after a reload, cloud errors are reported, and no save publishes before the website data loads.",
+      "PASS: admin photos publish to the website, beyond the local storage quota, after a reload, cloud errors are reported, no save publishes before the website data loads, and only the Firebase admin account can sign in, change its password and sign out.",
     );
   } finally {
     for (const context of contexts) await context.close().catch(() => {});
